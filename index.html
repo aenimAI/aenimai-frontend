@@ -5,71 +5,98 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aenimAI Realtime Voice Chat</title>
   <style>
-    body {
+    body{
       font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: #f5f5f5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
+      background-color:#121212;
+      color:#f5f5f5;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      height:100vh;
+      margin:0;
+      text-align:center;
     }
-    h1 { color: #1db954; margin-bottom: 8px; }
-    #status { color: #ccc; font-size: 16px; margin-bottom: 8px; }
+    h1{ color:#1db954; margin-bottom:8px; }
+    #status{ color:#ccc; font-size:16px; margin-bottom:8px; }
 
+    #controlsRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:center;
+      margin-top:12px;
+      width:min(560px,92vw);
+    }
     #inputRow{
       display:flex;
       gap:8px;
       align-items:center;
       justify-content:center;
-      margin-top: 12px;
-      width: min(560px, 92vw);
+      width:100%;
     }
     #textInput{
       flex:1;
-      min-width: 180px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid #333;
-      background: rgba(0,0,0,0.35);
-      color: #f5f5f5;
-      outline: none;
+      min-width:180px;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid #333;
+      background:rgba(0,0,0,0.35);
+      color:#f5f5f5;
+      outline:none;
     }
     #sendText{
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid #2b2b2b;
-      background: #1db954;
-      color: #0b0b0b;
-      cursor: pointer;
-      font-weight: 600;
+      padding:10px 14px;
+      border-radius:10px;
+      border:1px solid #2b2b2b;
+      background:#1db954;
+      color:#0b0b0b;
+      cursor:pointer;
+      font-weight:600;
+      white-space:nowrap;
     }
-    #sendText:disabled{
-      opacity: 0.5;
-      cursor: not-allowed;
+    #sendText:disabled{ opacity:.5; cursor:not-allowed; }
+
+    /* NEW: mic toggle button */
+    #micToggle{
+      padding:10px 14px;
+      border-radius:10px;
+      border:1px solid #2b2b2b;
+      background:#2a2a2a;
+      color:#f5f5f5;
+      cursor:pointer;
+      font-weight:600;
+      white-space:nowrap;
     }
-    #log {
-      position: fixed;
-      bottom: 10px; left: 10px; right: 10px;
-      max-height: 35vh; overflow-y: auto;
-      font-size: 11px;
-      background: rgba(0,0,0,0.75);
-      padding: 8px; border-radius: 8px;
-      border: 1px solid #333;
-      text-align: left; white-space: pre-wrap;
+    #micToggle.on{
+      background:#1db954;
+      color:#0b0b0b;
+    }
+    #micToggle:disabled{ opacity:.5; cursor:not-allowed; }
+
+    #log{
+      position:fixed;
+      bottom:10px; left:10px; right:10px;
+      max-height:35vh; overflow-y:auto;
+      font-size:11px;
+      background:rgba(0,0,0,0.75);
+      padding:8px; border-radius:8px;
+      border:1px solid #333;
+      text-align:left; white-space:pre-wrap;
     }
   </style>
 </head>
+
 <body>
   <h1>🎙️ aenimAI Realtime Voice Chat</h1>
   <p id="status">Initializing...</p>
 
-  <div id="inputRow">
-    <input id="textInput" type="text" placeholder="Type a message…" autocomplete="off" />
-    <button id="sendText" disabled>Send</button>
+  <div id="controlsRow">
+    <div id="inputRow">
+      <input id="textInput" type="text" placeholder="Type a message…" autocomplete="off" />
+      <button id="sendText" disabled>Send</button>
+    </div>
+    <button id="micToggle" disabled>🎙️ Talk</button>
   </div>
 
   <div id="log"></div>
@@ -85,6 +112,7 @@
 
     const textInputEl = document.getElementById("textInput");
     const sendBtnEl   = document.getElementById("sendText");
+    const micBtnEl    = document.getElementById("micToggle");
 
     function setStatus(t){ statusEl.innerText = t; }
     function appendLog(t){
@@ -109,7 +137,7 @@
         });
         appendLog(`📤 Sent to n8n [${role}]: ${text}`);
       }catch(err){
-        appendLog("⚠️ Failed to send: "+err.message);
+        appendLog("⚠️ Failed to send: " + err.message);
       }
     }
 
@@ -117,7 +145,7 @@
       appendLog("🔄 Requesting session from n8n...");
       const r = await fetch(N8N_SESSION_WEBHOOK);
       const txt = await r.text();
-      appendLog("📥 Session: "+txt.slice(0,200)+"...");
+      appendLog("📥 Session: " + txt.slice(0,200) + "...");
       return JSON.parse(txt);
     }
 
@@ -127,18 +155,20 @@
         const token = session.client_secret.value;
         const model = session.model;
 
+        // --- WebRTC setup (NO MIC REQUEST YET) ---
         const pc = new RTCPeerConnection();
 
         const remoteAudio = document.createElement("audio");
         remoteAudio.autoplay = true;
         pc.ontrack = e => { remoteAudio.srcObject = e.streams[0]; };
 
-        const mic = await navigator.mediaDevices.getUserMedia({audio:true});
-        mic.getTracks().forEach(t=>pc.addTrack(t,mic));
-
         const dc = pc.createDataChannel("oai-events");
 
-        // ✅ Request assistant response explicitly (text OR audio)
+        // mic state
+        let micStream = null;
+        let micEnabled = false;
+
+        // ✅ Explicitly request assistant response in chosen modality
         function requestAssistantResponse(modalities){
           if(!dc || dc.readyState !== "open"){
             appendLog("⚠️ Data channel not open yet — can't request response.");
@@ -150,13 +180,55 @@
           }));
         }
 
+        // NEW: enable/disable mic by adding/removing tracks
+        async function enableMic(){
+          if(micEnabled) return;
+          try{
+            micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+            micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
+            micEnabled = true;
+            micBtnEl.classList.add("on");
+            micBtnEl.textContent = "🔴 Talking (click to stop)";
+            appendLog("🎙️ Mic enabled");
+
+            // (Optional) tell user they can speak now:
+            // appendLog("🗣️ Speak now...");
+          }catch(err){
+            appendLog("❌ Mic permission/error: " + err.message);
+          }
+        }
+
+        function disableMic(){
+          if(!micEnabled) return;
+          try{
+            if(micStream){
+              micStream.getTracks().forEach(t => t.stop());
+            }
+          }catch(e){}
+          micStream = null;
+          micEnabled = false;
+          micBtnEl.classList.remove("on");
+          micBtnEl.textContent = "🎙️ Talk";
+          appendLog("🎙️ Mic disabled");
+        }
+
+        function toggleMic(){
+          if(!dc || dc.readyState !== "open"){
+            appendLog("⚠️ Not connected yet — can't toggle mic.");
+            return;
+          }
+          if(micEnabled) disableMic();
+          else enableMic();
+        }
+
         dc.onopen = ()=>{
           appendLog("📡 Data channel open");
           sendBtnEl.disabled = false;
+          micBtnEl.disabled  = false;
         };
-        dc.onerror=(e)=>appendLog("⚠️ Data channel error "+(e?.message || ""));
+        dc.onerror = (e)=>appendLog("⚠️ Data channel error " + (e?.message || ""));
 
-        // ✅ Typed input => create user msg + request TEXT response
+        // ✅ Typed input => user msg + TEXT response
         function sendTypedText(){
           const text = (textInputEl.value || "").trim();
           if(!text) return;
@@ -166,7 +238,6 @@
             return;
           }
 
-          // Create the user message
           dc.send(JSON.stringify({
             type: "conversation.item.create",
             item: {
@@ -179,7 +250,6 @@
           appendLog("🧑 User (typed): " + text);
           sendToN8N("user", text);
 
-          // Now force a TEXT-only response
           requestAssistantResponse(["text"]);
 
           textInputEl.value = "";
@@ -191,9 +261,11 @@
           if(e.key === "Enter") sendTypedText();
         });
 
-        // Optional: buffer to make text deltas look nicer (instead of one log line per delta)
+        // NEW: mic toggle button
+        micBtnEl.addEventListener("click", toggleMic);
+
+        // Text buffer (optional)
         let textBuffer = "";
-        let textStreaming = false;
 
         dc.onmessage = async (event)=>{
           console.log("FULL RAW:", event.data);
@@ -212,8 +284,10 @@
               appendLog("🧑 User: " + text);
               await sendToN8N("user", text);
 
-              // ✅ Spoken input => request AUDIO response
-              requestAssistantResponse(["audio"]);
+              // Only request audio response if mic is currently enabled
+              if(micEnabled){
+                requestAssistantResponse(["audio"]);
+              }
             }
           }
 
@@ -224,13 +298,8 @@
             const delta = msg.delta || "";
             if(delta){
               textBuffer += delta;
-              if(!textStreaming){
-                textStreaming = true;
-                appendLog("🤖 Assistant (typing): " + textBuffer);
-              } else {
-                // replace last line behavior is not trivial in plain text log;
-                // so we just append periodically or on done. We'll keep it simple:
-              }
+              // keep it simple: show streaming as separate logs (or wait for done)
+              // appendLog("🤖 Assistant (typing): " + delta);
             }
           }
 
@@ -241,7 +310,6 @@
               await sendToN8N("assistant", text);
             }
             textBuffer = "";
-            textStreaming = false;
           }
 
           // ===============================
@@ -276,14 +344,15 @@
         );
 
         const ans = await res.text();
-        await pc.setRemoteDescription({type:"answer", sdp:ans});
+        await pc.setRemoteDescription({type:"answer", sdp: ans});
 
-        setStatus("🟢 Connected — speak now (or type below)!");
+        setStatus("🟢 Connected — type anytime. Click 🎙️ Talk to start/stop voice.");
         appendLog("✅ Connected to OpenAI realtime");
+        appendLog("💡 Tip: Start with typing; enable mic only when you want to talk.");
 
       }catch(err){
-        setStatus("❌ "+err.message);
-        appendLog("❌ Init error: "+err.message);
+        setStatus("❌ " + err.message);
+        appendLog("❌ Init error: " + err.message);
       }
     }
 
