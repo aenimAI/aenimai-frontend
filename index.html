@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aenimAI Realtime Voice Chat</title>
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -21,7 +20,6 @@
     h1 { color: #1db954; margin-bottom: 8px; }
     #status { color: #ccc; font-size: 16px; margin-bottom: 8px; }
 
-    /* NEW: simple input row styling (non-breaking) */
     #inputRow{
       display:flex;
       gap:8px;
@@ -53,7 +51,6 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
-
     #log {
       position: fixed;
       bottom: 10px; left: 10px; right: 10px;
@@ -66,12 +63,10 @@
     }
   </style>
 </head>
-
 <body>
   <h1>🎙️ aenimAI Realtime Voice Chat</h1>
   <p id="status">Initializing...</p>
 
-  <!-- NEW: text input UI (safe addition) -->
   <div id="inputRow">
     <input id="textInput" type="text" placeholder="Type a message…" autocomplete="off" />
     <button id="sendText" disabled>Send</button>
@@ -88,7 +83,6 @@
     const statusEl = document.getElementById("status");
     const logEl    = document.getElementById("log");
 
-    // NEW: UI refs
     const textInputEl = document.getElementById("textInput");
     const sendBtnEl   = document.getElementById("sendText");
 
@@ -107,7 +101,6 @@
         timestamp: new Date().toISOString(),
         role, text
       };
-
       try{
         await fetch(N8N_LOG_WEBHOOK,{
           method:"POST",
@@ -145,14 +138,25 @@
 
         const dc = pc.createDataChannel("oai-events");
 
+        // ✅ Request assistant response explicitly (text OR audio)
+        function requestAssistantResponse(modalities){
+          if(!dc || dc.readyState !== "open"){
+            appendLog("⚠️ Data channel not open yet — can't request response.");
+            return;
+          }
+          dc.send(JSON.stringify({
+            type: "response.create",
+            response: { modalities } // ["text"] or ["audio"]
+          }));
+        }
+
         dc.onopen = ()=>{
           appendLog("📡 Data channel open");
-          // NEW: enable send button once data channel is ready
           sendBtnEl.disabled = false;
         };
-        dc.onerror=(e)=>appendLog("⚠️ Data channel error "+e.message);
+        dc.onerror=(e)=>appendLog("⚠️ Data channel error "+(e?.message || ""));
 
-        // NEW: function to send typed text to Realtime without breaking anything
+        // ✅ Typed input => create user msg + request TEXT response
         function sendTypedText(){
           const text = (textInputEl.value || "").trim();
           if(!text) return;
@@ -162,35 +166,37 @@
             return;
           }
 
-          // Send to OpenAI Realtime as a user message (input_text)
+          // Create the user message
           dc.send(JSON.stringify({
             type: "conversation.item.create",
             item: {
               type: "message",
               role: "user",
-              content: [
-                { type: "input_text", text }
-              ]
+              content: [{ type: "input_text", text }]
             }
           }));
 
-          // Log locally + store in n8n exactly like voice
           appendLog("🧑 User (typed): " + text);
           sendToN8N("user", text);
+
+          // Now force a TEXT-only response
+          requestAssistantResponse(["text"]);
 
           textInputEl.value = "";
           textInputEl.focus();
         }
 
-        // NEW: button + Enter key
         sendBtnEl.addEventListener("click", sendTypedText);
         textInputEl.addEventListener("keydown", (e)=>{
           if(e.key === "Enter") sendTypedText();
         });
 
-        dc.onmessage = async (event)=>{
-          console.log("FULL RAW:", event.data);  // debugging
+        // Optional: buffer to make text deltas look nicer (instead of one log line per delta)
+        let textBuffer = "";
+        let textStreaming = false;
 
+        dc.onmessage = async (event)=>{
+          console.log("FULL RAW:", event.data);
           let msg;
           try { msg = JSON.parse(event.data); }
           catch { return; }
@@ -198,31 +204,59 @@
           const type = msg.type || "";
 
           // ===============================
-          // 1) USER SPEECH EVENT
+          // 1) USER SPEECH TRANSCRIPTION
           // ===============================
           if(type === "conversation.item.input_audio_transcription.completed"){
-            const text = msg.transcript || "";
+            const text = (msg.transcript || "").trim();
             if(text){
-              appendLog("🧑 User: "+text);
+              appendLog("🧑 User: " + text);
               await sendToN8N("user", text);
+
+              // ✅ Spoken input => request AUDIO response
+              requestAssistantResponse(["audio"]);
             }
           }
 
           // ===============================
-          // 2) ASSISTANT SPEECH EVENT
+          // 2) ASSISTANT TEXT EVENTS (typed mode)
           // ===============================
-          if(type === "response.output_item.done"){
-            if(!msg.item || !msg.item.content) return;
-
-            for(const c of msg.item.content){
-              if(c.type === "audio" && c.transcript){
-                const text = c.transcript.trim();
-                appendLog("🤖 Assistant: "+text);
-                await sendToN8N("assistant", text);
+          if(type === "response.text.delta"){
+            const delta = msg.delta || "";
+            if(delta){
+              textBuffer += delta;
+              if(!textStreaming){
+                textStreaming = true;
+                appendLog("🤖 Assistant (typing): " + textBuffer);
+              } else {
+                // replace last line behavior is not trivial in plain text log;
+                // so we just append periodically or on done. We'll keep it simple:
               }
             }
           }
 
+          if(type === "response.text.done"){
+            const text = (msg.text || textBuffer || "").trim();
+            if(text){
+              appendLog("🤖 Assistant: " + text);
+              await sendToN8N("assistant", text);
+            }
+            textBuffer = "";
+            textStreaming = false;
+          }
+
+          // ===============================
+          // 3) ASSISTANT AUDIO TRANSCRIPT EVENTS (voice mode)
+          // ===============================
+          if(type === "response.output_item.done"){
+            if(!msg.item || !msg.item.content) return;
+            for(const c of msg.item.content){
+              if(c.type === "audio" && c.transcript){
+                const text = c.transcript.trim();
+                appendLog("🤖 Assistant (voice): " + text);
+                await sendToN8N("assistant", text);
+              }
+            }
+          }
         };
 
         // WebRTC offer → OpenAI
@@ -255,6 +289,5 @@
 
     initRealtime();
   </script>
-
 </body>
 </html>
