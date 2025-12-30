@@ -344,7 +344,14 @@
         );
 
         const ans = await res.text();
-        await pc.setRemoteDescription({type:"answer", sdp: ans});
+        appendLog(`🛰️ Realtime SDP response status: ${res.status}`);
+        appendLog(`🛰️ Realtime SDP response head: ${ans.slice(0,120).replace(/\n/g," ")}`);
+
+        if (!res.ok || !ans.trim().startsWith("v=")) {
+        throw new Error(`Realtime returned non-SDP: ${ans.slice(0,200)}`);
+        }
+
+        await pc.setRemoteDescription({ type: "answer", sdp: ans });
 
         setStatus("🟢 Connected — type anytime. Click 🎙️ Talk to start/stop voice.");
         appendLog("✅ Connected to OpenAI realtime");
