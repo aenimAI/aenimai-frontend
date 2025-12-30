@@ -145,12 +145,20 @@
 
         const pc = new RTCPeerConnection();
 
-        // Remote audio (assistant voice)
+        // ✅ Remote audio element (assistant voice). Append + force play to avoid autoplay issues.
         const remoteAudio = document.createElement("audio");
         remoteAudio.autoplay = true;
-        pc.ontrack = e => { remoteAudio.srcObject = e.streams[0]; };
+        remoteAudio.muted = false;
+        remoteAudio.playsInline = true;
+        remoteAudio.style.display = "none";
+        document.body.appendChild(remoteAudio);
 
-        // ✅ IMPORTANT: reserve an audio section in SDP WITHOUT mic permission
+        pc.ontrack = (e) => {
+          remoteAudio.srcObject = e.streams[0];
+          remoteAudio.play().catch(err => appendLog("🔇 Audio play blocked: " + err.message));
+        };
+
+        // ✅ Reserve audio m-line in SDP (no mic permission prompt)
         const audioTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
         const audioSender = audioTransceiver.sender;
 
@@ -189,11 +197,6 @@
           appendLog("🎙️ Mic disabled");
         }
 
-        micBtnEl.addEventListener("click", ()=>{
-          if(micEnabled) disableMic();
-          else enableMic();
-        });
-
         const dc = pc.createDataChannel("oai-events");
 
         function requestAssistantResponse(modalities){
@@ -206,6 +209,13 @@
             response: { modalities } // ["text"] or ["audio"]
           }));
         }
+
+        // ✅ Mic toggle: also "unlock" audio output on user gesture
+        micBtnEl.addEventListener("click", ()=>{
+          remoteAudio.play().catch(()=>{});
+          if(micEnabled) disableMic();
+          else enableMic();
+        });
 
         dc.onopen = ()=>{
           appendLog("📡 Data channel open");
@@ -290,9 +300,9 @@
             if(!msg.item || !msg.item.content) return;
             for(const c of msg.item.content){
               if(c.type === "audio" && c.transcript){
-                const text = c.transcript.trim();
-                appendLog("🤖 Assistant (voice): " + text);
-                await sendToN8N("assistant", text);
+                const t = c.transcript.trim();
+                appendLog("🤖 Assistant (voice): " + t);
+                await sendToN8N("assistant", t);
               }
             }
           }
@@ -316,7 +326,6 @@
 
         const ans = await res.text();
 
-        // Helpful debug if anything goes wrong
         appendLog(`🛰️ Realtime SDP response status: ${res.status}`);
         appendLog(`🛰️ Realtime SDP response head: ${ans.slice(0,120).replace(/\n/g," ")}`);
 
@@ -339,4 +348,5 @@
   </script>
 </body>
 </html>
+
 
