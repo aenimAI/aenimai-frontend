@@ -4,103 +4,402 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aenimAI Realtime Voice Chat</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: #f5f5f5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
-    }
-    h1 { color: #1db954; margin-bottom: 8px; }
-    #status { color: #ccc; font-size: 16px; margin-bottom: 8px; }
 
-    #controlsRow{
+  <style>
+    :root{
+      --bg0:#060606;
+      --bg1:#0b0b0b;
+      --card: rgba(255,255,255,0.03);
+      --card2: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.16);
+      --text:#f4f4f4;
+      --muted: rgba(255,255,255,0.70);
+      --muted2: rgba(255,255,255,0.45);
+      --shadow: 0 25px 60px rgba(0,0,0,0.65);
+      --radius: 26px;
+    }
+
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background:
+        radial-gradient(900px 500px at 50% 30%, rgba(255,255,255,0.08), transparent 60%),
+        radial-gradient(900px 700px at 50% 120%, rgba(255,255,255,0.05), transparent 65%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow:hidden;
+    }
+
+    /* subtle film grain */
+    body::before{
+      content:"";
+      position:fixed; inset:-30%;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E");
+      opacity:.08;
+      pointer-events:none;
+      mix-blend-mode: overlay;
+      transform: rotate(5deg);
+    }
+
+    .wrap{
+      height:100%;
       display:flex;
-      gap:10px;
       align-items:center;
       justify-content:center;
-      margin-top:12px;
-      width:min(720px, 92vw);
-    }
-    #textInput{
-      flex:1;
-      min-width:180px;
-      padding:10px 12px;
-      border-radius:10px;
-      border:1px solid #333;
-      background: rgba(0,0,0,0.35);
-      color:#f5f5f5;
-      outline:none;
-    }
-    button{
-      padding:10px 14px;
-      border-radius:10px;
-      border:1px solid #2b2b2b;
-      cursor:pointer;
-      font-weight:600;
-      white-space:nowrap;
-    }
-    #sendText{
-      background:#1db954;
-      color:#0b0b0b;
-    }
-    #sendText:disabled,
-    #micToggle:disabled{
-      opacity:0.5;
-      cursor:not-allowed;
-    }
-    #micToggle{
-      background:#2a2a2a;
-      color:#f5f5f5;
-    }
-    #micToggle.on{
-      background:#1db954;
-      color:#0b0b0b;
+      padding: 22px;
     }
 
-    #log {
-      position: fixed;
-      bottom: 10px; left: 10px; right: 10px;
-      max-height: 35vh; overflow-y: auto;
+    .card{
+      width:min(980px, 92vw);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      position:relative;
+      overflow:hidden;
+    }
+
+    /* inner highlight border */
+    .card::after{
+      content:"";
+      position:absolute; inset:0;
+      border-radius: var(--radius);
+      padding:1px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.02));
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events:none;
+      opacity:.65;
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding: 18px 22px 0 22px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      user-select:none;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: rgba(255,255,255,0.15);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 0 0 6px rgba(255,255,255,0.02);
+    }
+    body.connected .dot{
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 0 0 6px rgba(255,255,255,0.06);
+    }
+
+    h1{
+      margin:0;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.92);
+    }
+
+    #status{
+      margin:0;
+      font-size: 13px;
+      color: var(--muted);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      justify-content:flex-end;
+      min-height: 22px;
+      text-align:right;
+    }
+    .kbd{
+      font-size:11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.8);
+    }
+
+    .hero{
+      padding: 18px 22px 0 22px;
+      position:relative;
+    }
+
+    .heroInner{
+      height: 310px;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background:
+        radial-gradient(420px 200px at 50% 62%, rgba(255,255,255,0.14), transparent 70%),
+        radial-gradient(640px 260px at 50% 110%, rgba(255,255,255,0.08), transparent 65%),
+        rgba(0,0,0,0.10);
+      overflow:hidden;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    /* wave canvas */
+    #wave{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      opacity: 0.95;
+    }
+
+    .logoWrap{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      padding: 18px;
+      z-index:2;
+    }
+
+    .logo{
+      width: 124px;
+      height: 124px;
+      object-fit: contain;
+      filter:
+        drop-shadow(0 0 16px rgba(255,255,255,0.35))
+        drop-shadow(0 0 40px rgba(255,255,255,0.12));
+      opacity: .95;
+      transform: translateZ(0);
+    }
+
+    /* ring pulse around logo */
+    .pulse{
+      position:absolute;
+      width: 210px; height: 210px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 0 0 0 rgba(255,255,255,0.12);
+      opacity: .55;
+      animation: idlePulse 5s ease-in-out infinite;
+      z-index:1;
+    }
+
+    body.listening .pulse{ animation: listenPulse 1.25s ease-in-out infinite; opacity:.75; }
+    body.speaking  .pulse{ animation: speakPulse 0.95s ease-in-out infinite; opacity:.85; }
+
+    @keyframes idlePulse{
+      0%,100%{ transform: scale(0.98); box-shadow: 0 0 0 0 rgba(255,255,255,0.10); }
+      50%{ transform: scale(1.02); box-shadow: 0 0 0 14px rgba(255,255,255,0.05); }
+    }
+    @keyframes listenPulse{
+      0%,100%{ transform: scale(0.97); box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
+      50%{ transform: scale(1.05); box-shadow: 0 0 0 18px rgba(255,255,255,0.07); }
+    }
+    @keyframes speakPulse{
+      0%,100%{ transform: scale(0.96); box-shadow: 0 0 0 0 rgba(255,255,255,0.22); }
+      50%{ transform: scale(1.07); box-shadow: 0 0 0 22px rgba(255,255,255,0.09); }
+    }
+
+    .hint{
+      font-size: 12px;
+      color: var(--muted2);
+      text-align:center;
+      line-height: 1.35;
+      max-width: 520px;
+    }
+
+    .controls{
+      padding: 14px 22px 18px 22px;
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .input{
+      flex:1;
+      height: 44px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.95);
+      outline:none;
+      transition: border-color .2s ease, background .2s ease;
+    }
+    .input:focus{
+      border-color: rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .btn{
+      height: 44px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.92);
+      cursor:pointer;
+      font-weight: 700;
+      letter-spacing: .2px;
+      transition: transform .06s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
+      display:flex; align-items:center; gap:8px;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn:hover{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{ opacity: .45; cursor:not-allowed; }
+
+    .btnPrimary{
+      background: rgba(255,255,255,0.92);
+      color: rgba(0,0,0,0.92);
+      border-color: rgba(255,255,255,0.30);
+    }
+    .btnPrimary:hover{ background: rgba(255,255,255,0.98); }
+
+    .btnTalk.on{
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.30);
+    }
+
+    .footerRow{
+      padding: 0 22px 18px 22px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .mini{
+      font-size: 12px;
+      color: var(--muted2);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .toggleDebug{
+      font-size: 12px;
+      color: rgba(255,255,255,0.78);
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 999px;
+      padding: 7px 10px;
+      cursor:pointer;
+      user-select:none;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .toggleDebug:hover{ background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.16); }
+
+    #log{
+      margin: 0 22px 22px 22px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.35);
+      max-height: 24vh;
+      overflow:auto;
+      padding: 12px 12px;
       font-size: 11px;
-      background: rgba(0,0,0,0.75);
-      padding: 8px; border-radius: 8px;
-      border: 1px solid #333;
-      text-align: left; white-space: pre-wrap;
+      color: rgba(255,255,255,0.72);
+      white-space: pre-wrap;
+      display:none;
+    }
+    body.debug #log{ display:block; }
+
+    /* responsive */
+    @media (max-width: 680px){
+      header{ padding: 16px 16px 0 16px; }
+      .hero{ padding: 16px 16px 0 16px; }
+      .controls{ padding: 12px 16px 16px 16px; flex-wrap: wrap; }
+      .btn{ flex:1; justify-content:center; }
+      .btnPrimary{ flex: 1.2; }
+      .footerRow{ padding: 0 16px 16px 16px; }
+      #log{ margin: 0 16px 16px 16px; }
+      .heroInner{ height: 280px; }
     }
   </style>
 </head>
 
 <body>
-  <h1>🎙️ aenimAI Realtime Voice Chat</h1>
-  <p id="status">Initializing...</p>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div class="brand">
+          <div class="dot" aria-hidden="true"></div>
+          <h1>aenimAI Realtime Voice Chat</h1>
+        </div>
+        <p id="status">Initializing…</p>
+      </header>
 
-  <div id="controlsRow">
-    <input id="textInput" type="text" placeholder="Type a message…" autocomplete="off" />
-    <button id="sendText" disabled>Send</button>
-    <button id="micToggle" disabled>🎙️ Talk</button>
+      <section class="hero">
+        <div class="heroInner">
+          <canvas id="wave"></canvas>
+
+          <div class="logoWrap">
+            <div class="pulse" aria-hidden="true"></div>
+
+            <!-- Put logoAE.png in the same folder as this index.html (repo root) -->
+            <img class="logo" src="logoAE.png" alt="aenimAI logo"
+                 onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='block';" />
+            <div id="logoFallback" style="display:none; font-weight:800; letter-spacing:.6px; opacity:.85;">
+              aenimAI
+            </div>
+
+            <div class="hint" id="hint">
+              Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.
+              <br/>First interaction also unlocks audio in the browser.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <input id="textInput" class="input" type="text" placeholder="Type a message…" autocomplete="off" />
+        <button id="sendText" class="btn btnPrimary" disabled>Send</button>
+        <button id="micToggle" class="btn btnTalk" disabled>Talk</button>
+      </section>
+
+      <div class="footerRow">
+        <div class="mini" id="modeLine">Mode: <span id="modeValue">idle</span></div>
+        <button class="toggleDebug" id="debugToggle" type="button">Debug</button>
+      </div>
+
+      <div id="log"></div>
+    </div>
   </div>
 
-  <div id="log"></div>
-
   <script>
+    /***********************
+     * CONFIG (same as yours)
+     ***********************/
     const N8N_SESSION_WEBHOOK = "https://aenimai.app.n8n.cloud/webhook/realtime-ai";
     const N8N_LOG_WEBHOOK     = "https://aenimai.app.n8n.cloud/webhook/get-logs";
-
     const SESSION_ID = "sess_" + Math.random().toString(36).slice(2) + "_" + Date.now();
 
-    const statusEl = document.getElementById("status");
-    const logEl    = document.getElementById("log");
-
-    const textInputEl = document.getElementById("textInput");
-    const sendBtnEl   = document.getElementById("sendText");
-    const micBtnEl    = document.getElementById("micToggle");
+    /***********************
+     * DOM
+     ***********************/
+    const statusEl     = document.getElementById("status");
+    const logEl        = document.getElementById("log");
+    const textInputEl  = document.getElementById("textInput");
+    const sendBtnEl    = document.getElementById("sendText");
+    const micBtnEl     = document.getElementById("micToggle");
+    const debugBtnEl   = document.getElementById("debugToggle");
+    const modeValueEl  = document.getElementById("modeValue");
+    const waveCanvas   = document.getElementById("wave");
+    const hintEl       = document.getElementById("hint");
 
     function setStatus(t){ statusEl.innerText = t; }
     function appendLog(t){
@@ -109,6 +408,30 @@
       logEl.scrollTop = logEl.scrollHeight;
     }
 
+    debugBtnEl.addEventListener("click", ()=>{
+      document.body.classList.toggle("debug");
+    });
+
+    /***********************
+     * UI State helpers
+     ***********************/
+    let isConnected = false;
+    let micEnabled  = false;
+    let isSpeaking  = false;
+
+    function updateModeUI(){
+      let mode = "idle";
+      document.body.classList.remove("connected","listening","speaking");
+      if(isConnected) document.body.classList.add("connected");
+      if(micEnabled){ mode = "listening"; document.body.classList.add("listening"); }
+      if(isSpeaking){ mode = "speaking";  document.body.classList.add("speaking"); }
+      if(micEnabled && isSpeaking) mode = "listening + speaking";
+      modeValueEl.textContent = mode;
+    }
+
+    /***********************
+     * n8n logging (same)
+     ***********************/
     async function sendToN8N(role, text){
       if(!text) return;
       const body = {
@@ -118,14 +441,14 @@
         role, text
       };
       try{
-        await fetch(N8N_LOG_WEBHOOK,{
+        await fetch(N8N_LOG_WEBHOOK, {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify(body)
         });
         appendLog(`📤 Sent to n8n [${role}]: ${text}`);
       }catch(err){
-        appendLog("⚠️ Failed to send: "+err.message);
+        appendLog("⚠️ Failed to send: " + err.message);
       }
     }
 
@@ -137,7 +460,172 @@
       return JSON.parse(txt);
     }
 
+    /***********************
+     * Waveform visual (black/white)
+     * - Uses WebAudio AnalyserNode
+     * - Shows different intensity for idle/listening/speaking
+     ***********************/
+    let audioCtx = null;
+    let analyserMic = null;
+    let analyserRemote = null;
+    let dataArray = null;
+
+    function ensureAudioContext(){
+      if(audioCtx) return audioCtx;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function connectAnalyserForStream(stream, which){
+      if(!stream) return null;
+      const ctx = ensureAudioContext();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.85;
+      source.connect(analyser);
+      if(!dataArray) dataArray = new Uint8Array(analyser.frequencyBinCount);
+      if(which === "mic") analyserMic = analyser;
+      if(which === "remote") analyserRemote = analyser;
+      return analyser;
+    }
+
+    function resizeCanvas(){
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const rect = waveCanvas.getBoundingClientRect();
+      waveCanvas.width  = Math.floor(rect.width * dpr);
+      waveCanvas.height = Math.floor(rect.height * dpr);
+      const ctx = waveCanvas.getContext("2d");
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    window.addEventListener("resize", resizeCanvas);
+
+    function drawWave(){
+      const ctx = waveCanvas.getContext("2d");
+      const w = waveCanvas.getBoundingClientRect().width;
+      const h = waveCanvas.getBoundingClientRect().height;
+
+      // background fade (very subtle)
+      ctx.clearRect(0,0,w,h);
+
+      // pick analyser by state
+      const a = (isSpeaking && analyserRemote) ? analyserRemote
+              : (micEnabled && analyserMic) ? analyserMic
+              : null;
+
+      // determine energy
+      let energy = 0.12; // idle baseline
+      let arr = null;
+      if(a){
+        arr = dataArray || new Uint8Array(a.frequencyBinCount);
+        a.getByteFrequencyData(arr);
+        let sum = 0;
+        for(let i=0;i<arr.length;i++) sum += arr[i];
+        const avg = sum / arr.length;          // 0..255
+        energy = Math.min(1, Math.max(0.10, avg / 180)); // normalize
+      } else {
+        // idle breathing
+        energy = 0.10 + 0.04 * (0.5 + 0.5 * Math.sin(Date.now()/900));
+      }
+
+      // style intensity per mode
+      let amp = 0.18;  // idle
+      if(micEnabled) amp = 0.32;
+      if(isSpeaking) amp = 0.46;
+      amp *= (0.55 + energy);
+
+      // draw multiple layered waves
+      const mid = h * 0.52;
+      const baseAlpha = 0.14 + amp * 0.25;
+      const glowAlpha = 0.05 + amp * 0.12;
+
+      // soft glow band
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255,255,255,${glowAlpha})`;
+      ctx.ellipse(w*0.5, mid, w*0.42, h*0.18 + amp*45, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // waveform line(s)
+      const t = Date.now() / 1000;
+      const layers = 3;
+      for(let L=0; L<layers; L++){
+        const phase = t * (0.9 + L*0.18);
+        const lineAmp = (h * (0.06 + L*0.018)) * (0.65 + amp);
+        const freq = 2.2 + L*0.7;
+
+        ctx.beginPath();
+        for(let x=0; x<=w; x+=2){
+          const nx = x / w;
+          // taper edges
+          const taper = Math.sin(Math.PI * nx);
+          // add some movement + optional audio modulation
+          let mod = 1;
+          if(arr){
+            const idx = Math.min(arr.length-1, Math.floor(nx * arr.length));
+            mod = 0.55 + (arr[idx] / 255) * 0.9;
+          }
+          const y = mid
+            + Math.sin((nx * Math.PI * 2 * freq) + phase) * lineAmp * taper * mod * 0.55
+            + Math.sin((nx * Math.PI * 2 * (freq*0.55)) - phase*1.3) * lineAmp * taper * mod * 0.22;
+
+          if(x===0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+        }
+        const aLine = baseAlpha * (1 - L*0.22);
+        ctx.strokeStyle = `rgba(255,255,255,${aLine})`;
+        ctx.lineWidth = 1.25 + L*0.5;
+        ctx.shadowColor = `rgba(255,255,255,${0.18 + amp*0.25})`;
+        ctx.shadowBlur = 18 + amp*22;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      requestAnimationFrame(drawWave);
+    }
+
+    /***********************
+     * Realtime init
+     ***********************/
     async function initRealtime(){
+      resizeCanvas();
+      drawWave();
+
+      // Remote audio element (assistant voice)
+      const remoteAudio = document.createElement("audio");
+      remoteAudio.autoplay = true;
+      remoteAudio.muted = false;
+      remoteAudio.playsInline = true;
+      remoteAudio.style.display = "none";
+      document.body.appendChild(remoteAudio);
+
+      // speaking detection
+      const markSpeaking = (v)=>{
+        isSpeaking = v;
+        updateModeUI();
+      };
+      remoteAudio.addEventListener("playing", ()=>markSpeaking(true));
+      remoteAudio.addEventListener("pause",   ()=>markSpeaking(false));
+      remoteAudio.addEventListener("ended",   ()=>markSpeaking(false));
+
+      // One-time unlock helper (autoplay policies)
+      async function unlockAudio(){
+        try{
+          const ctx = ensureAudioContext();
+          if(ctx.state === "suspended") await ctx.resume();
+        }catch(e){}
+        try{
+          await remoteAudio.play();
+        }catch(e){}
+      }
+      // unlock on first user gesture anywhere
+      const unlockOnce = ()=>{
+        unlockAudio();
+        window.removeEventListener("pointerdown", unlockOnce);
+        window.removeEventListener("keydown", unlockOnce);
+      };
+      window.addEventListener("pointerdown", unlockOnce, { once:false });
+      window.addEventListener("keydown", unlockOnce, { once:false });
+
       try{
         const session = await getSession();
         const token = session.client_secret.value;
@@ -145,37 +633,32 @@
 
         const pc = new RTCPeerConnection();
 
-        // ✅ Remote audio element (assistant voice). Append + force play to avoid autoplay issues.
-        const remoteAudio = document.createElement("audio");
-        remoteAudio.autoplay = true;
-        remoteAudio.muted = false;
-        remoteAudio.playsInline = true;
-        remoteAudio.style.display = "none";
-        document.body.appendChild(remoteAudio);
-
         pc.ontrack = (e) => {
           remoteAudio.srcObject = e.streams[0];
+          // connect analyser to assistant audio stream for visuals
+          connectAnalyserForStream(e.streams[0], "remote");
           remoteAudio.play().catch(err => appendLog("🔇 Audio play blocked: " + err.message));
         };
 
-        // ✅ Reserve audio m-line in SDP (no mic permission prompt)
+        // Reserve audio m-line in SDP (no mic permission prompt)
         const audioTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
         const audioSender = audioTransceiver.sender;
-
         let micStream = null;
-        let micEnabled = false;
 
         async function enableMic(){
           if(micEnabled) return;
+          await unlockAudio();
           try{
             micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
             const track = micStream.getAudioTracks()[0];
             await audioSender.replaceTrack(track);
-
             micEnabled = true;
             micBtnEl.classList.add("on");
-            micBtnEl.textContent = "🔴 Talking";
+            micBtnEl.textContent = "Listening";
             appendLog("🎙️ Mic enabled");
+            // connect analyser to mic stream for visuals
+            connectAnalyserForStream(micStream, "mic");
+            updateModeUI();
           }catch(err){
             appendLog("❌ Mic error: " + err.message);
           }
@@ -183,18 +666,16 @@
 
         async function disableMic(){
           if(!micEnabled) return;
-
           try{ await audioSender.replaceTrack(null); } catch(e){}
-
           if(micStream){
             micStream.getTracks().forEach(t => t.stop());
           }
           micStream = null;
-
           micEnabled = false;
           micBtnEl.classList.remove("on");
-          micBtnEl.textContent = "🎙️ Talk";
+          micBtnEl.textContent = "Talk";
           appendLog("🎙️ Mic disabled");
+          updateModeUI();
         }
 
         const dc = pc.createDataChannel("oai-events");
@@ -210,9 +691,9 @@
           }));
         }
 
-        // ✅ Mic toggle: also "unlock" audio output on user gesture
-        micBtnEl.addEventListener("click", ()=>{
-          remoteAudio.play().catch(()=>{});
+        // Mic toggle: unlock audio output on user gesture
+        micBtnEl.addEventListener("click", async ()=>{
+          await unlockAudio();
           if(micEnabled) disableMic();
           else enableMic();
         });
@@ -221,18 +702,23 @@
           appendLog("📡 Data channel open");
           sendBtnEl.disabled = false;
           micBtnEl.disabled  = false;
+          isConnected = true;
+          updateModeUI();
+          setStatus("Connected • type anytime or press Talk");
+          hintEl.innerHTML = `Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.`;
         };
-        dc.onerror = (e)=>appendLog("⚠️ Data channel error "+(e?.message || ""));
+        dc.onerror = (e)=>appendLog("⚠️ Data channel error " + (e?.message || ""));
 
         function sendTypedText(){
           const text = (textInputEl.value || "").trim();
           if(!text) return;
 
+          unlockAudio();
+
           if(!dc || dc.readyState !== "open"){
             appendLog("⚠️ Not connected yet — can't send typed text.");
             return;
           }
-
           dc.send(JSON.stringify({
             type: "conversation.item.create",
             item: {
@@ -241,10 +727,10 @@
               content: [{ type: "input_text", text }]
             }
           }));
-
           appendLog("🧑 User (typed): " + text);
           sendToN8N("user", text);
 
+          // typed => text response
           requestAssistantResponse(["text"]);
 
           textInputEl.value = "";
@@ -259,7 +745,6 @@
         let textBuffer = "";
 
         dc.onmessage = async (event)=>{
-          console.log("FULL RAW:", event.data);
           let msg;
           try { msg = JSON.parse(event.data); }
           catch { return; }
@@ -272,8 +757,7 @@
             if(text){
               appendLog("🧑 User: " + text);
               await sendToN8N("user", text);
-
-              // Only speak back if mic mode is enabled
+              // Voice mode: only speak back if mic is enabled
               if(micEnabled){
                 requestAssistantResponse(["audio"]);
               }
@@ -285,7 +769,6 @@
             const delta = msg.delta || "";
             if(delta) textBuffer += delta;
           }
-
           if(type === "response.text.done"){
             const text = (msg.text || textBuffer || "").trim();
             if(text){
@@ -325,7 +808,6 @@
         );
 
         const ans = await res.text();
-
         appendLog(`🛰️ Realtime SDP response status: ${res.status}`);
         appendLog(`🛰️ Realtime SDP response head: ${ans.slice(0,120).replace(/\n/g," ")}`);
 
@@ -335,9 +817,7 @@
 
         await pc.setRemoteDescription({ type:"answer", sdp: ans });
 
-        setStatus("🟢 Connected — type anytime. Click 🎙️ Talk to start/stop voice.");
         appendLog("✅ Connected to OpenAI realtime");
-
       }catch(err){
         setStatus("❌ " + err.message);
         appendLog("❌ Init error: " + err.message);
@@ -348,5 +828,3 @@
   </script>
 </body>
 </html>
-
-
