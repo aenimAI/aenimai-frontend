@@ -4,142 +4,142 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aenimAI Realtime Voice Chat</title>
-
   <style>
-    :root{
-      --bg0:#060606;
-      --bg1:#0b0b0b;
+    :root {
+      --bg0: #060606;
+      --bg1: #0b0b0b;
       --card: rgba(255,255,255,0.03);
       --card2: rgba(255,255,255,0.06);
       --border: rgba(255,255,255,0.10);
       --border2: rgba(255,255,255,0.16);
-      --text:#f4f4f4;
+      --text: #f4f4f4;
       --muted: rgba(255,255,255,0.70);
       --muted2: rgba(255,255,255,0.45);
       --shadow: 0 25px 60px rgba(0,0,0,0.65);
       --radius: 26px;
     }
-
-    *{ box-sizing: border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
       color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial,
+        "Apple Color Emoji", "Segoe UI Emoji";
       background:
         radial-gradient(900px 500px at 50% 30%, rgba(255,255,255,0.08), transparent 60%),
         radial-gradient(900px 700px at 50% 120%, rgba(255,255,255,0.05), transparent 65%),
         linear-gradient(180deg, var(--bg0), var(--bg1));
-      overflow:hidden;
+      overflow: hidden;
     }
-
     /* subtle film grain */
-    body::before{
-      content:"";
-      position:fixed; inset:-30%;
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -30%;
       background-image:
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E");
-      opacity:.08;
-      pointer-events:none;
+      opacity: .08;
+      pointer-events: none;
       mix-blend-mode: overlay;
       transform: rotate(5deg);
     }
-
-    .wrap{
-      height:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    .wrap {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 22px;
     }
-
-    .card{
-      width:min(980px, 92vw);
+    .card {
+      width: min(980px, 92vw);
       border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.05),
+        rgba(255,255,255,0.02)
+      );
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      position:relative;
-      overflow:hidden;
+      position: relative;
+      overflow: hidden;
     }
-
     /* inner highlight border */
-    .card::after{
-      content:"";
-      position:absolute; inset:0;
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
       border-radius: var(--radius);
-      padding:1px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.02));
-      -webkit-mask:
-        linear-gradient(#000 0 0) content-box,
+      padding: 1px;
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.20),
+        rgba(255,255,255,0.02)
+      );
+      -webkit-mask: linear-gradient(#000 0 0) content-box,
         linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
       mask-composite: exclude;
-      pointer-events:none;
-      opacity:.65;
+      pointer-events: none;
+      opacity: .65;
     }
-
-    header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
       padding: 18px 22px 0 22px;
     }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      user-select:none;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
     }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
       background: rgba(255,255,255,0.15);
-      border:1px solid rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.18);
       box-shadow: 0 0 0 6px rgba(255,255,255,0.02);
     }
-    body.connected .dot{
+    body.connected .dot {
       background: rgba(255,255,255,0.95);
       box-shadow: 0 0 0 6px rgba(255,255,255,0.06);
     }
-
-    h1{
-      margin:0;
+    h1 {
+      margin: 0;
       font-size: 18px;
       letter-spacing: 0.2px;
       font-weight: 700;
       color: rgba(255,255,255,0.92);
     }
-
-    #status{
-      margin:0;
+    #status {
+      margin: 0;
       font-size: 13px;
       color: var(--muted);
-      display:flex;
-      align-items:center;
-      gap:8px;
-      justify-content:flex-end;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
       min-height: 22px;
-      text-align:right;
+      text-align: right;
     }
-    .kbd{
-      font-size:11px;
+    .kbd {
+      font-size: 11px;
       padding: 3px 8px;
       border-radius: 999px;
-      border:1px solid var(--border);
+      border: 1px solid var(--border);
       background: rgba(255,255,255,0.04);
       color: rgba(255,255,255,0.8);
     }
-
-    .hero{
+    .hero {
       padding: 18px 22px 0 22px;
-      position:relative;
+      position: relative;
     }
-
-    .heroInner{
+    .heroInner {
       height: 310px;
       border-radius: 22px;
       border: 1px solid rgba(255,255,255,0.10);
@@ -147,191 +147,194 @@
         radial-gradient(420px 200px at 50% 62%, rgba(255,255,255,0.14), transparent 70%),
         radial-gradient(640px 260px at 50% 110%, rgba(255,255,255,0.08), transparent 65%),
         rgba(0,0,0,0.10);
-      overflow:hidden;
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
     /* wave canvas */
-    #wave{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
+    #wave {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       opacity: 0.95;
     }
-
-    .logoWrap{
-      position:relative;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:10px;
+    .logoWrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
       padding: 18px;
-      z-index:2;
+      z-index: 2;
     }
-
-    .logo{
+    .logo {
       width: 124px;
       height: 124px;
       object-fit: contain;
-      filter:
-        drop-shadow(0 0 16px rgba(255,255,255,0.35))
+      filter: drop-shadow(0 0 16px rgba(255,255,255,0.35))
         drop-shadow(0 0 40px rgba(255,255,255,0.12));
       opacity: .95;
       transform: translateZ(0);
     }
-
     /* ring pulse around logo */
-    .pulse{
-      position:absolute;
-      width: 210px; height: 210px;
+    .pulse {
+      position: absolute;
+      width: 210px;
+      height: 210px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.18);
       box-shadow: 0 0 0 0 rgba(255,255,255,0.12);
       opacity: .55;
       animation: idlePulse 5s ease-in-out infinite;
-      z-index:1;
+      z-index: 1;
     }
-
-    body.listening .pulse{ animation: listenPulse 1.25s ease-in-out infinite; opacity:.75; }
-    body.speaking  .pulse{ animation: speakPulse 0.95s ease-in-out infinite; opacity:.85; }
-
-    @keyframes idlePulse{
-      0%,100%{ transform: scale(0.98); box-shadow: 0 0 0 0 rgba(255,255,255,0.10); }
-      50%{ transform: scale(1.02); box-shadow: 0 0 0 14px rgba(255,255,255,0.05); }
+    body.listening .pulse {
+      animation: listenPulse 1.25s ease-in-out infinite;
+      opacity: .75;
     }
-    @keyframes listenPulse{
-      0%,100%{ transform: scale(0.97); box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
-      50%{ transform: scale(1.05); box-shadow: 0 0 0 18px rgba(255,255,255,0.07); }
+    body.speaking .pulse {
+      animation: speakPulse 0.95s ease-in-out infinite;
+      opacity: .85;
     }
-    @keyframes speakPulse{
-      0%,100%{ transform: scale(0.96); box-shadow: 0 0 0 0 rgba(255,255,255,0.22); }
-      50%{ transform: scale(1.07); box-shadow: 0 0 0 22px rgba(255,255,255,0.09); }
+    @keyframes idlePulse {
+      0%,100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(255,255,255,0.10); }
+      50% { transform: scale(1.02); box-shadow: 0 0 0 14px rgba(255,255,255,0.05); }
     }
-
-    .hint{
+    @keyframes listenPulse {
+      0%,100% { transform: scale(0.97); box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
+      50% { transform: scale(1.05); box-shadow: 0 0 0 18px rgba(255,255,255,0.07); }
+    }
+    @keyframes speakPulse {
+      0%,100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(255,255,255,0.22); }
+      50% { transform: scale(1.07); box-shadow: 0 0 0 22px rgba(255,255,255,0.09); }
+    }
+    .hint {
       font-size: 12px;
       color: var(--muted2);
-      text-align:center;
+      text-align: center;
       line-height: 1.35;
       max-width: 520px;
     }
-
-    .controls{
+    .controls {
       padding: 14px 22px 18px 22px;
-      display:flex;
-      gap:12px;
-      align-items:center;
+      display: flex;
+      gap: 12px;
+      align-items: center;
     }
-
-    .input{
-      flex:1;
+    .input {
+      flex: 1;
       height: 44px;
       padding: 0 14px;
       border-radius: 14px;
-      border:1px solid var(--border);
+      border: 1px solid var(--border);
       background: rgba(255,255,255,0.04);
       color: rgba(255,255,255,0.95);
-      outline:none;
+      outline: none;
       transition: border-color .2s ease, background .2s ease;
     }
-    .input:focus{
+    .input:focus {
       border-color: rgba(255,255,255,0.25);
       background: rgba(255,255,255,0.06);
     }
-
-    .btn{
+    .btn {
       height: 44px;
       padding: 0 14px;
       border-radius: 14px;
-      border:1px solid var(--border);
+      border: 1px solid var(--border);
       background: rgba(255,255,255,0.04);
       color: rgba(255,255,255,0.92);
-      cursor:pointer;
+      cursor: pointer;
       font-weight: 700;
       letter-spacing: .2px;
       transition: transform .06s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
-      display:flex; align-items:center; gap:8px;
-      user-select:none;
-      white-space:nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      white-space: nowrap;
     }
-    .btn:hover{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); }
-    .btn:active{ transform: translateY(1px); }
-    .btn:disabled{ opacity: .45; cursor:not-allowed; }
-
-    .btnPrimary{
+    .btn:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.18);
+    }
+    .btn:active {
+      transform: translateY(1px);
+    }
+    .btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+    .btnPrimary {
       background: rgba(255,255,255,0.92);
       color: rgba(0,0,0,0.92);
       border-color: rgba(255,255,255,0.30);
     }
-    .btnPrimary:hover{ background: rgba(255,255,255,0.98); }
-
-    .btnTalk.on{
+    .btnPrimary:hover {
+      background: rgba(255,255,255,0.98);
+    }
+    .btnTalk.on {
       background: rgba(255,255,255,0.18);
       border-color: rgba(255,255,255,0.30);
     }
-
-    .footerRow{
+    .footerRow {
       padding: 0 22px 18px 22px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
     }
-
-    .mini{
+    .mini {
       font-size: 12px;
       color: var(--muted2);
-      display:flex;
-      align-items:center;
-      gap:10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-
-    .toggleDebug{
+    .toggleDebug {
       font-size: 12px;
       color: rgba(255,255,255,0.78);
-      border:1px solid var(--border);
+      border: 1px solid var(--border);
       background: rgba(255,255,255,0.03);
       border-radius: 999px;
       padding: 7px 10px;
-      cursor:pointer;
-      user-select:none;
+      cursor: pointer;
+      user-select: none;
       transition: background .2s ease, border-color .2s ease;
     }
-    .toggleDebug:hover{ background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.16); }
-
-    #log{
+    .toggleDebug:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.16);
+    }
+    #log {
       margin: 0 22px 22px 22px;
       border-radius: 18px;
       border: 1px solid rgba(255,255,255,0.10);
       background: rgba(0,0,0,0.35);
       max-height: 24vh;
-      overflow:auto;
+      overflow: auto;
       padding: 12px 12px;
       font-size: 11px;
       color: rgba(255,255,255,0.72);
       white-space: pre-wrap;
-      display:none;
+      display: none;
     }
-    body.debug #log{ display:block; }
-
+    body.debug #log { display: block; }
     /* responsive */
-    @media (max-width: 680px){
-      header{ padding: 16px 16px 0 16px; }
-      .hero{ padding: 16px 16px 0 16px; }
-      .controls{ padding: 12px 16px 16px 16px; flex-wrap: wrap; }
-      .btn{ flex:1; justify-content:center; }
-      .btnPrimary{ flex: 1.2; }
-      .footerRow{ padding: 0 16px 16px 16px; }
-      #log{ margin: 0 16px 16px 16px; }
-      .heroInner{ height: 280px; }
+    @media (max-width: 680px) {
+      header { padding: 16px 16px 0 16px; }
+      .hero { padding: 16px 16px 0 16px; }
+      .controls { padding: 12px 16px 16px 16px; flex-wrap: wrap; }
+      .btn { flex: 1; justify-content: center; }
+      .btnPrimary { flex: 1.2; }
+      .footerRow { padding: 0 16px 16px 16px; }
+      #log { margin: 0 16px 16px 16px; }
+      .heroInner { height: 280px; }
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
@@ -342,21 +345,17 @@
         </div>
         <p id="status">Initializing…</p>
       </header>
-
       <section class="hero">
         <div class="heroInner">
           <canvas id="wave"></canvas>
-
           <div class="logoWrap">
             <div class="pulse" aria-hidden="true"></div>
-
             <!-- Put logoAE.png in the same folder as this index.html (repo root) -->
             <img class="logo" src="logoAE.png" alt="aenimAI logo"
-                 onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='block';" />
+              onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='block';" />
             <div id="logoFallback" style="display:none; font-weight:800; letter-spacing:.6px; opacity:.85;">
               aenimAI
             </div>
-
             <div class="hint" id="hint">
               Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.
               <br/>First interaction also unlocks audio in the browser.
@@ -364,22 +363,18 @@
           </div>
         </div>
       </section>
-
       <section class="controls">
         <input id="textInput" class="input" type="text" placeholder="Type a message…" autocomplete="off" />
         <button id="sendText" class="btn btnPrimary" disabled>Send</button>
         <button id="micToggle" class="btn btnTalk" disabled>Talk</button>
       </section>
-
       <div class="footerRow">
         <div class="mini" id="modeLine">Mode: <span id="modeValue">idle</span></div>
         <button class="toggleDebug" id="debugToggle" type="button">Debug</button>
       </div>
-
       <div id="log"></div>
     </div>
   </div>
-
   <script>
     /***********************
      * CONFIG (same as yours)
@@ -387,7 +382,6 @@
     const N8N_SESSION_WEBHOOK = "https://aenimai.app.n8n.cloud/webhook/realtime-ai";
     const N8N_LOG_WEBHOOK     = "https://aenimai.app.n8n.cloud/webhook/get-logs";
     const SESSION_ID = "sess_" + Math.random().toString(36).slice(2) + "_" + Date.now();
-
     /***********************
      * DOM
      ***********************/
@@ -400,25 +394,21 @@
     const modeValueEl  = document.getElementById("modeValue");
     const waveCanvas   = document.getElementById("wave");
     const hintEl       = document.getElementById("hint");
-
     function setStatus(t){ statusEl.innerText = t; }
     function appendLog(t){
       const ts = new Date().toISOString().slice(11,19);
-      logEl.textContent += `[${ts}] ${t}\n`;
+      logEl.textContent += \`[\${ts}] \${t}\n\`;
       logEl.scrollTop = logEl.scrollHeight;
     }
-
     debugBtnEl.addEventListener("click", ()=>{
       document.body.classList.toggle("debug");
     });
-
     /***********************
      * UI State helpers
      ***********************/
     let isConnected = false;
     let micEnabled  = false;
     let isSpeaking  = false;
-
     function updateModeUI(){
       let mode = "idle";
       document.body.classList.remove("connected","listening","speaking");
@@ -428,7 +418,6 @@
       if(micEnabled && isSpeaking) mode = "listening + speaking";
       modeValueEl.textContent = mode;
     }
-
     /***********************
      * n8n logging (same)
      ***********************/
@@ -446,12 +435,11 @@
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify(body)
         });
-        appendLog(`📤 Sent to n8n [${role}]: ${text}`);
+        appendLog(\`📤 Sent to n8n [\${role}]: \${text}\`);
       }catch(err){
         appendLog("⚠️ Failed to send: " + err.message);
       }
     }
-
     async function getSession(){
       appendLog("🔄 Requesting session from n8n...");
       const r = await fetch(N8N_SESSION_WEBHOOK);
@@ -459,7 +447,6 @@
       appendLog("📥 Session: " + txt.slice(0,200) + "...");
       return JSON.parse(txt);
     }
-
     /***********************
      * Waveform visual (black/white)
      * - Uses WebAudio AnalyserNode
@@ -469,13 +456,11 @@
     let analyserMic = null;
     let analyserRemote = null;
     let dataArray = null;
-
     function ensureAudioContext(){
       if(audioCtx) return audioCtx;
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       return audioCtx;
     }
-
     function connectAnalyserForStream(stream, which){
       if(!stream) return null;
       const ctx = ensureAudioContext();
@@ -489,7 +474,6 @@
       if(which === "remote") analyserRemote = analyser;
       return analyser;
     }
-
     function resizeCanvas(){
       const dpr = Math.max(1, window.devicePixelRatio || 1);
       const rect = waveCanvas.getBoundingClientRect();
@@ -499,20 +483,16 @@
       ctx.setTransform(dpr,0,0,dpr,0,0);
     }
     window.addEventListener("resize", resizeCanvas);
-
     function drawWave(){
       const ctx = waveCanvas.getContext("2d");
       const w = waveCanvas.getBoundingClientRect().width;
       const h = waveCanvas.getBoundingClientRect().height;
-
       // background fade (very subtle)
       ctx.clearRect(0,0,w,h);
-
       // pick analyser by state
       const a = (isSpeaking && analyserRemote) ? analyserRemote
               : (micEnabled && analyserMic) ? analyserMic
               : null;
-
       // determine energy
       let energy = 0.12; // idle baseline
       let arr = null;
@@ -527,24 +507,20 @@
         // idle breathing
         energy = 0.10 + 0.04 * (0.5 + 0.5 * Math.sin(Date.now()/900));
       }
-
       // style intensity per mode
       let amp = 0.18;  // idle
       if(micEnabled) amp = 0.32;
       if(isSpeaking) amp = 0.46;
       amp *= (0.55 + energy);
-
       // draw multiple layered waves
       const mid = h * 0.52;
       const baseAlpha = 0.14 + amp * 0.25;
       const glowAlpha = 0.05 + amp * 0.12;
-
       // soft glow band
       ctx.beginPath();
-      ctx.fillStyle = `rgba(255,255,255,${glowAlpha})`;
+      ctx.fillStyle = \`rgba(255,255,255,\${glowAlpha})\`;
       ctx.ellipse(w*0.5, mid, w*0.42, h*0.18 + amp*45, 0, 0, Math.PI*2);
       ctx.fill();
-
       // waveform line(s)
       const t = Date.now() / 1000;
       const layers = 3;
@@ -552,7 +528,6 @@
         const phase = t * (0.9 + L*0.18);
         const lineAmp = (h * (0.06 + L*0.018)) * (0.65 + amp);
         const freq = 2.2 + L*0.7;
-
         ctx.beginPath();
         for(let x=0; x<=w; x+=2){
           const nx = x / w;
@@ -567,29 +542,25 @@
           const y = mid
             + Math.sin((nx * Math.PI * 2 * freq) + phase) * lineAmp * taper * mod * 0.55
             + Math.sin((nx * Math.PI * 2 * (freq*0.55)) - phase*1.3) * lineAmp * taper * mod * 0.22;
-
           if(x===0) ctx.moveTo(x,y);
           else ctx.lineTo(x,y);
         }
         const aLine = baseAlpha * (1 - L*0.22);
-        ctx.strokeStyle = `rgba(255,255,255,${aLine})`;
+        ctx.strokeStyle = \`rgba(255,255,255,\${aLine})\`;
         ctx.lineWidth = 1.25 + L*0.5;
-        ctx.shadowColor = `rgba(255,255,255,${0.18 + amp*0.25})`;
+        ctx.shadowColor = \`rgba(255,255,255,\${0.18 + amp*0.25})\`;
         ctx.shadowBlur = 18 + amp*22;
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
-
       requestAnimationFrame(drawWave);
     }
-
     /***********************
      * Realtime init
      ***********************/
     async function initRealtime(){
       resizeCanvas();
       drawWave();
-
       // Remote audio element (assistant voice)
       const remoteAudio = document.createElement("audio");
       remoteAudio.autoplay = true;
@@ -597,7 +568,6 @@
       remoteAudio.playsInline = true;
       remoteAudio.style.display = "none";
       document.body.appendChild(remoteAudio);
-
       // speaking detection
       const markSpeaking = (v)=>{
         isSpeaking = v;
@@ -606,7 +576,6 @@
       remoteAudio.addEventListener("playing", ()=>markSpeaking(true));
       remoteAudio.addEventListener("pause",   ()=>markSpeaking(false));
       remoteAudio.addEventListener("ended",   ()=>markSpeaking(false));
-
       // One-time unlock helper (autoplay policies)
       async function unlockAudio(){
         try{
@@ -625,26 +594,21 @@
       };
       window.addEventListener("pointerdown", unlockOnce, { once:false });
       window.addEventListener("keydown", unlockOnce, { once:false });
-
       try{
         const session = await getSession();
         const token = session.client_secret.value;
         const model = session.model;
-
         const pc = new RTCPeerConnection();
-
         pc.ontrack = (e) => {
           remoteAudio.srcObject = e.streams[0];
           // connect analyser to assistant audio stream for visuals
           connectAnalyserForStream(e.streams[0], "remote");
           remoteAudio.play().catch(err => appendLog("🔇 Audio play blocked: " + err.message));
         };
-
         // Reserve audio m-line in SDP (no mic permission prompt)
         const audioTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
         const audioSender = audioTransceiver.sender;
         let micStream = null;
-
         async function enableMic(){
           if(micEnabled) return;
           await unlockAudio();
@@ -663,7 +627,6 @@
             appendLog("❌ Mic error: " + err.message);
           }
         }
-
         async function disableMic(){
           if(!micEnabled) return;
           try{ await audioSender.replaceTrack(null); } catch(e){}
@@ -677,9 +640,7 @@
           appendLog("🎙️ Mic disabled");
           updateModeUI();
         }
-
         const dc = pc.createDataChannel("oai-events");
-
         function requestAssistantResponse(modalities){
           if(!dc || dc.readyState !== "open"){
             appendLog("⚠️ Data channel not open yet — can't request response.");
@@ -690,14 +651,12 @@
             response: { modalities } // ["text"] or ["audio"]
           }));
         }
-
         // Mic toggle: unlock audio output on user gesture
         micBtnEl.addEventListener("click", async ()=>{
           await unlockAudio();
           if(micEnabled) disableMic();
           else enableMic();
         });
-
         dc.onopen = ()=>{
           appendLog("📡 Data channel open");
           sendBtnEl.disabled = false;
@@ -705,16 +664,13 @@
           isConnected = true;
           updateModeUI();
           setStatus("Connected • type anytime or press Talk");
-          hintEl.innerHTML = `Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.`;
+          hintEl.innerHTML = \`Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.\`;
         };
         dc.onerror = (e)=>appendLog("⚠️ Data channel error " + (e?.message || ""));
-
         function sendTypedText(){
           const text = (textInputEl.value || "").trim();
           if(!text) return;
-
           unlockAudio();
-
           if(!dc || dc.readyState !== "open"){
             appendLog("⚠️ Not connected yet — can't send typed text.");
             return;
@@ -729,28 +685,21 @@
           }));
           appendLog("🧑 User (typed): " + text);
           sendToN8N("user", text);
-
           // typed => text response
           requestAssistantResponse(["text"]);
-
           textInputEl.value = "";
           textInputEl.focus();
         }
-
         sendBtnEl.addEventListener("click", sendTypedText);
         textInputEl.addEventListener("keydown", (e)=>{
           if(e.key === "Enter") sendTypedText();
         });
-
         let textBuffer = "";
-
         dc.onmessage = async (event)=>{
           let msg;
           try { msg = JSON.parse(event.data); }
           catch { return; }
-
           const type = msg.type || "";
-
           // 1) User speech -> transcription
           if(type === "conversation.item.input_audio_transcription.completed"){
             const text = (msg.transcript || "").trim();
@@ -763,7 +712,6 @@
               }
             }
           }
-
           // 2) Assistant text (typed responses)
           if(type === "response.text.delta"){
             const delta = msg.delta || "";
@@ -777,7 +725,6 @@
             }
             textBuffer = "";
           }
-
           // 3) Assistant audio transcript (voice responses)
           if(type === "response.output_item.done"){
             if(!msg.item || !msg.item.content) return;
@@ -790,41 +737,35 @@
             }
           }
         };
-
         // Offer/Answer with OpenAI Realtime
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-
         const res = await fetch(
-          `https://api.openai.com/v1/realtime?model=${model}`,
+          \`https://api.openai.com/v1/realtime?model=\${model}\`,
           {
             method:"POST",
             headers:{
               "Content-Type":"application/sdp",
-              "Authorization": `Bearer ${token}`
+              "Authorization": \`Bearer \${token}\`
             },
             body: offer.sdp
           }
         );
-
         const ans = await res.text();
-        appendLog(`🛰️ Realtime SDP response status: ${res.status}`);
-        appendLog(`🛰️ Realtime SDP response head: ${ans.slice(0,120).replace(/\n/g," ")}`);
-
+        appendLog(\`🛰️ Realtime SDP response status: \${res.status}\`);
+        appendLog(\`🛰️ Realtime SDP response head: \${ans.slice(0,120).replace(/\\n/g," ")}\`);
         if(!res.ok || !ans.trim().startsWith("v=")){
           throw new Error("Realtime returned non-SDP: " + ans.slice(0,200));
         }
-
         await pc.setRemoteDescription({ type:"answer", sdp: ans });
-
         appendLog("✅ Connected to OpenAI realtime");
       }catch(err){
         setStatus("❌ " + err.message);
         appendLog("❌ Init error: " + err.message);
       }
     }
-
     initRealtime();
   </script>
 </body>
 </html>
+
