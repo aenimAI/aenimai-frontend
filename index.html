@@ -3,768 +3,324 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aenimAI Realtime Voice Chat</title>
+  <title>aenimAI Voice Chat</title>
   <style>
-    :root {
-      --bg0: #060606;
-      --bg1: #0b0b0b;
-      --card: rgba(255,255,255,0.03);
-      --card2: rgba(255,255,255,0.06);
-      --border: rgba(255,255,255,0.10);
-      --border2: rgba(255,255,255,0.16);
-      --text: #f4f4f4;
-      --muted: rgba(255,255,255,0.70);
-      --muted2: rgba(255,255,255,0.45);
-      --shadow: 0 25px 60px rgba(0,0,0,0.65);
-      --radius: 26px;
+    /* Reset some basic styles for consistency */
+    html, body {
+      margin: 0; padding: 0;
+      background: #000;  /* base black background */
+      color: #fff;       /* default text color in white */
+      font-family: sans-serif;
+      height: 100%; width: 100%;
+      overflow: hidden;  /* hide scrollbars (single-page app) */
     }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial,
-        "Apple Color Emoji", "Segoe UI Emoji";
-      background:
-        radial-gradient(900px 500px at 50% 30%, rgba(255,255,255,0.08), transparent 60%),
-        radial-gradient(900px 700px at 50% 120%, rgba(255,255,255,0.05), transparent 65%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      overflow: hidden;
-    }
-    /* subtle film grain */
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -30%;
-      background-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E");
-      opacity: .08;
-      pointer-events: none;
-      mix-blend-mode: overlay;
-      transform: rotate(5deg);
-    }
-    .wrap {
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 22px;
-    }
-    .card {
-      width: min(980px, 92vw);
-      border-radius: var(--radius);
-      background: linear-gradient(
-        180deg,
-        rgba(255,255,255,0.05),
-        rgba(255,255,255,0.02)
-      );
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+    /* Full-page container */
+    .container {
       position: relative;
-      overflow: hidden;
-    }
-    /* inner highlight border */
-    .card::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: var(--radius);
-      padding: 1px;
-      background: linear-gradient(
-        180deg,
-        rgba(255,255,255,0.20),
-        rgba(255,255,255,0.02)
-      );
-      -webkit-mask: linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-      opacity: .65;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 18px 22px 0 22px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      user-select: none;
-    }
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.18);
-      box-shadow: 0 0 0 6px rgba(255,255,255,0.02);
-    }
-    body.connected .dot {
-      background: rgba(255,255,255,0.95);
-      box-shadow: 0 0 0 6px rgba(255,255,255,0.06);
-    }
-    h1 {
-      margin: 0;
-      font-size: 18px;
-      letter-spacing: 0.2px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.92);
-    }
-    #status {
-      margin: 0;
-      font-size: 13px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      justify-content: flex-end;
-      min-height: 22px;
-      text-align: right;
-    }
-    .kbd {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: rgba(255,255,255,0.8);
-    }
-    .hero {
-      padding: 18px 22px 0 22px;
-      position: relative;
-    }
-    .heroInner {
-      height: 310px;
-      border-radius: 22px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background:
-        radial-gradient(420px 200px at 50% 62%, rgba(255,255,255,0.14), transparent 70%),
-        radial-gradient(640px 260px at 50% 110%, rgba(255,255,255,0.08), transparent 65%),
-        rgba(0,0,0,0.10);
-      overflow: hidden;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    /* wave canvas */
-    #wave {
-      position: absolute;
-      inset: 0;
       width: 100%;
       height: 100%;
-      opacity: 0.95;
-    }
-    .logoWrap {
-      position: relative;
+      /* Use flex to center content */
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      padding: 18px;
-      z-index: 2;
+      justify-content: center;
+      /* Dark glassy background effect: a subtle radial glow */
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05), rgba(0,0,0,0) 70%);
+      /* The above gradient adds a faint white glow at center */
+      /* (We could also add backdrop-filter blur on an overlay for more glass effect) */
     }
+    /* Glowing Eye Logo */
     .logo {
-      width: 124px;
-      height: 124px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 16px rgba(255,255,255,0.35))
-        drop-shadow(0 0 40px rgba(255,255,255,0.12));
-      opacity: .95;
-      transform: translateZ(0);
+      width: clamp(150px, 25vw, 300px);  /* responsive size: min 150px, max 300px, or 25% viewport width */
+      /* Centered within its container (container uses flex, so it's already centered horizontally) */
+      /* Pulsing glow effect around the logo */
+      filter: drop-shadow(0 0 8px rgba(255,255,255,0.8));
+      /* drop-shadow creates a glow based on image shape */
+      animation: logoPulse 2.5s ease-in-out infinite;
     }
-    /* ring pulse around logo */
-    .pulse {
+    @keyframes logoPulse {
+      0%, 100% { filter: drop-shadow(0 0 8px rgba(255,255,255,0.5)); }
+      50% { filter: drop-shadow(0 0 20px rgba(255,255,255,1)); }
+    }
+    /* Waveform bars container (positioned behind the logo) */
+    .waveforms {
       position: absolute;
-      width: 210px;
-      height: 210px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.18);
-      box-shadow: 0 0 0 0 rgba(255,255,255,0.12);
-      opacity: .55;
-      animation: idlePulse 5s ease-in-out infinite;
-      z-index: 1;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);  /* center the waveform group on screen */
+      display: flex;
+      gap: 4px;
+      /* We will make the waveform container a thin horizontal strip centered at the logo */
+      height: 4px;  /* base height of bars (they will scale around this baseline) */
+      width: 60vw;  /* span a good width of viewport for a cinematic look */
+      max-width: 800px;
+      /* overflow visible allows bars to extend beyond this baseline strip when scaled */
+      overflow: visible;
+      pointer-events: none;  /* click-through, so it doesn't block clicking the logo or controls */
     }
-    body.listening .pulse {
-      animation: listenPulse 1.25s ease-in-out infinite;
-      opacity: .75;
+    .waveforms div {
+      background: #fff;
+      width: 4px;
+      border-radius: 2px;
+      /* Each bar initially is as tall as the .waveforms container (baseline height) */
+      height: 100%;
+      transform-origin: center center;  /* scale from center (so bars expand up & down) */
+      /* We will apply animations via state classes on .container */
     }
-    body.speaking .pulse {
-      animation: speakPulse 0.95s ease-in-out infinite;
-      opacity: .85;
+    /* Idle state – subtle small oscillation */
+    .container.idle .waveforms div {
+      animation: waveIdle 3s ease-in-out infinite;
     }
-    @keyframes idlePulse {
-      0%,100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(255,255,255,0.10); }
-      50% { transform: scale(1.02); box-shadow: 0 0 0 14px rgba(255,255,255,0.05); }
+    @keyframes waveIdle {
+      0%, 100% { transform: scaleY(1); }
+      50% { transform: scaleY(1.5); }  /* gentle 50% growth */
     }
-    @keyframes listenPulse {
-      0%,100% { transform: scale(0.97); box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
-      50% { transform: scale(1.05); box-shadow: 0 0 0 18px rgba(255,255,255,0.07); }
+    /* Listening state – a bit faster and taller pulsation */
+    .container.listening .waveforms div {
+      animation: waveListen 1.8s ease-in-out infinite;
     }
-    @keyframes speakPulse {
-      0%,100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(255,255,255,0.22); }
-      50% { transform: scale(1.07); box-shadow: 0 0 0 22px rgba(255,255,255,0.09); }
+    @keyframes waveListen {
+      0%, 100% { transform: scaleY(1); }
+      50% { transform: scaleY(3); }  /* more noticeable pulse */
     }
-    .hint {
-      font-size: 12px;
-      color: var(--muted2);
-      text-align: center;
-      line-height: 1.35;
-      max-width: 520px;
+    /* Speaking state – lively, irregular waveform animation */
+    .container.speaking .waveforms div {
+      animation: waveSpeak 1s ease-in-out infinite;
     }
+    @keyframes waveSpeak {
+      0%   { transform: scaleY(1); }
+      25%  { transform: scaleY(4); }
+      50%  { transform: scaleY(0.5); }
+      75%  { transform: scaleY(3); }
+      100% { transform: scaleY(1); }
+    }
+    /* Staggered animation delays for waveform bars to create a traveling wave pattern */
+    .container.speaking .waveforms div:nth-child(5n+1) { animation-delay: 0s; }
+    .container.speaking .waveforms div:nth-child(5n+2) { animation-delay: 0.1s; }
+    .container.speaking .waveforms div:nth-child(5n+3) { animation-delay: 0.2s; }
+    .container.speaking .waveforms div:nth-child(5n+4) { animation-delay: 0.3s; }
+    .container.speaking .waveforms div:nth-child(5n+5) { animation-delay: 0.4s; }
+    /* (For idle/listening, no stagger – all bars pulse in sync for a calmer look) */
+    /* Control buttons styling */
     .controls {
-      padding: 14px 22px 18px 22px;
+      position: absolute;
+      bottom: 5%; 
       display: flex;
-      gap: 12px;
-      align-items: center;
+      gap: 20px;
+      /* center horizontally */
+      left: 50%; transform: translateX(-50%);
     }
-    .input {
-      flex: 1;
-      height: 44px;
-      padding: 0 14px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: rgba(255,255,255,0.95);
-      outline: none;
-      transition: border-color .2s ease, background .2s ease;
-    }
-    .input:focus {
-      border-color: rgba(255,255,255,0.25);
-      background: rgba(255,255,255,0.06);
-    }
-    .btn {
-      height: 44px;
-      padding: 0 14px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: rgba(255,255,255,0.92);
+    .controls button {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      font-size: 1rem;
+      padding: 0.5em 1em;
+      border-radius: 5px;
       cursor: pointer;
-      font-weight: 700;
-      letter-spacing: .2px;
-      transition: transform .06s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      user-select: none;
-      white-space: nowrap;
     }
-    .btn:hover {
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(255,255,255,0.18);
+    .controls button:hover {
+      background: rgba(255,255,255,0.2);
     }
-    .btn:active {
-      transform: translateY(1px);
+    .controls button:disabled {
+      opacity: 0.5; cursor: not-allowed;
     }
-    .btn:disabled {
-      opacity: .45;
-      cursor: not-allowed;
-    }
-    .btnPrimary {
-      background: rgba(255,255,255,0.92);
-      color: rgba(0,0,0,0.92);
-      border-color: rgba(255,255,255,0.30);
-    }
-    .btnPrimary:hover {
-      background: rgba(255,255,255,0.98);
-    }
-    .btnTalk.on {
-      background: rgba(255,255,255,0.18);
-      border-color: rgba(255,255,255,0.30);
-    }
-    .footerRow {
-      padding: 0 22px 18px 22px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
-    .mini {
-      font-size: 12px;
-      color: var(--muted2);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .toggleDebug {
-      font-size: 12px;
-      color: rgba(255,255,255,0.78);
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      border-radius: 999px;
-      padding: 7px 10px;
-      cursor: pointer;
-      user-select: none;
-      transition: background .2s ease, border-color .2s ease;
-    }
-    .toggleDebug:hover {
-      background: rgba(255,255,255,0.05);
-      border-color: rgba(255,255,255,0.16);
-    }
-    #log {
-      margin: 0 22px 22px 22px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(0,0,0,0.35);
-      max-height: 24vh;
-      overflow: auto;
-      padding: 12px 12px;
-      font-size: 11px;
-      color: rgba(255,255,255,0.72);
-      white-space: pre-wrap;
-      display: none;
-    }
-    body.debug #log { display: block; }
-    /* responsive */
-    @media (max-width: 680px) {
-      header { padding: 16px 16px 0 16px; }
-      .hero { padding: 16px 16px 0 16px; }
-      .controls { padding: 12px 16px 16px 16px; flex-wrap: wrap; }
-      .btn { flex: 1; justify-content: center; }
-      .btnPrimary { flex: 1.2; }
-      .footerRow { padding: 0 16px 16px 16px; }
-      #log { margin: 0 16px 16px 16px; }
-      .heroInner { height: 280px; }
+    /* Transcript text area (for debugging or optional display) */
+    .transcript {
+      position: absolute;
+      top: 10%;
+      width: 80%;
+      max-width: 600px;
+      left: 50%; transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.8);
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <header>
-        <div class="brand">
-          <div class="dot" aria-hidden="true"></div>
-          <h1>aenimAI Realtime Voice Chat</h1>
-        </div>
-        <p id="status">Initializing…</p>
-      </header>
-      <section class="hero">
-        <div class="heroInner">
-          <canvas id="wave"></canvas>
-          <div class="logoWrap">
-            <div class="pulse" aria-hidden="true"></div>
-            <!-- Put logoAE.png in the same folder as this index.html (repo root) -->
-            <img class="logo" src="logoAE.png" alt="aenimAI logo"
-              onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='block';" />
-            <div id="logoFallback" style="display:none; font-weight:800; letter-spacing:.6px; opacity:.85;">
-              aenimAI
-            </div>
-            <div class="hint" id="hint">
-              Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.
-              <br/>First interaction also unlocks audio in the browser.
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="controls">
-        <input id="textInput" class="input" type="text" placeholder="Type a message…" autocomplete="off" />
-        <button id="sendText" class="btn btnPrimary" disabled>Send</button>
-        <button id="micToggle" class="btn btnTalk" disabled>Talk</button>
-      </section>
-      <div class="footerRow">
-        <div class="mini" id="modeLine">Mode: <span id="modeValue">idle</span></div>
-        <button class="toggleDebug" id="debugToggle" type="button">Debug</button>
-      </div>
-      <div id="log"></div>
+  <div class="container idle" id="app">  <!-- container with state class -->
+    <!-- Glowing eye logo -->
+    <img src="logoAE.png" alt="aenimAI" class="logo" id="logo" />
+    <!-- Waveform bars (20 bars for example) -->
+    <div class="waveforms" id="waveform">
+      <!-- We generate multiple span/div bars for the waveform -->
+      ${Array(20).fill('<div></div>').join('')}
     </div>
+    <!-- Controls: Start/Stop/Reset -->
+    <div class="controls">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <!-- Transcript display (optional, can be hidden if not needed) -->
+    <div class="transcript" id="transcript"></div>
   </div>
+
   <script>
-    /***********************
-     * CONFIG (same as yours)
-     ***********************/
-    const N8N_SESSION_WEBHOOK = "https://aenimai.app.n8n.cloud/webhook/realtime-ai";
-    const N8N_LOG_WEBHOOK     = "https://aenimai.app.n8n.cloud/webhook/get-logs";
-    const SESSION_ID = "sess_" + Math.random().toString(36).slice(2) + "_" + Date.now();
-    /***********************
-     * DOM
-     ***********************/
-    const statusEl     = document.getElementById("status");
-    const logEl        = document.getElementById("log");
-    const textInputEl  = document.getElementById("textInput");
-    const sendBtnEl    = document.getElementById("sendText");
-    const micBtnEl     = document.getElementById("micToggle");
-    const debugBtnEl   = document.getElementById("debugToggle");
-    const modeValueEl  = document.getElementById("modeValue");
-    const waveCanvas   = document.getElementById("wave");
-    const hintEl       = document.getElementById("hint");
-    function setStatus(t){ statusEl.innerText = t; }
-    function appendLog(t){
-      const ts = new Date().toISOString().slice(11,19);
-      logEl.textContent += \`[\${ts}] \${t}\n\`;
-      logEl.scrollTop = logEl.scrollHeight;
+    /* JavaScript: WebRTC/OpenAI voice chat functionality */
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn  = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const transcriptEl = document.getElementById('transcript');
+    const appContainer = document.getElementById('app');
+
+    // State variables
+    let socket = null;
+    let mediaStream = null;
+    let mediaProcessor = null;
+    let audioContext = null;
+    let sourceNode = null;
+    let outputBufferQueue = [];  // queue for incoming audio data
+    let outputSourcePlaying = false;
+    let nextAudioTime = 0;
+
+    // Helper: switch UI state
+    function setState(state) {
+      appContainer.classList.remove('idle','listening','speaking');
+      appContainer.classList.add(state);
     }
-    debugBtnEl.addEventListener("click", ()=>{
-      document.body.classList.toggle("debug");
-    });
-    /***********************
-     * UI State helpers
-     ***********************/
-    let isConnected = false;
-    let micEnabled  = false;
-    let isSpeaking  = false;
-    function updateModeUI(){
-      let mode = "idle";
-      document.body.classList.remove("connected","listening","speaking");
-      if(isConnected) document.body.classList.add("connected");
-      if(micEnabled){ mode = "listening"; document.body.classList.add("listening"); }
-      if(isSpeaking){ mode = "speaking";  document.body.classList.add("speaking"); }
-      if(micEnabled && isSpeaking) mode = "listening + speaking";
-      modeValueEl.textContent = mode;
-    }
-    /***********************
-     * n8n logging (same)
-     ***********************/
-    async function sendToN8N(role, text){
-      if(!text) return;
-      const body = {
-        source: "aenimAI-frontend",
-        session_id: SESSION_ID,
-        timestamp: new Date().toISOString(),
-        role, text
+
+    // Play an incoming audio chunk (Float32Array PCM data)
+    function playAudioChunk(chunk) {
+      if (!audioContext) return;
+      // Create audio buffer from PCM float data (assuming 16kHz sample rate from server for this example)
+      const sampleRate = 16000;
+      const audioBuffer = audioContext.createBuffer(1, chunk.length, sampleRate);
+      audioBuffer.getChannelData(0).set(chunk);
+      const bufferSource = audioContext.createBufferSource();
+      bufferSource.buffer = audioBuffer;
+      bufferSource.connect(audioContext.destination);
+      // Schedule playback seamlessly
+      if (nextAudioTime < audioContext.currentTime) {
+        nextAudioTime = audioContext.currentTime;
+      }
+      bufferSource.start(nextAudioTime);
+      nextAudioTime += audioBuffer.duration;
+      bufferSource.onended = () => {
+        // When finished playing, if no more audio scheduled, revert to listening state
+        if (Math.abs(nextAudioTime - audioContext.currentTime) < 0.1) {  // no pending audio
+          setState('listening');
+        }
       };
-      try{
-        await fetch(N8N_LOG_WEBHOOK, {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify(body)
-        });
-        appendLog(\`📤 Sent to n8n [\${role}]: \${text}\`);
-      }catch(err){
-        appendLog("⚠️ Failed to send: " + err.message);
-      }
     }
-    async function getSession(){
-      appendLog("🔄 Requesting session from n8n...");
-      const r = await fetch(N8N_SESSION_WEBHOOK);
-      const txt = await r.text();
-      appendLog("📥 Session: " + txt.slice(0,200) + "...");
-      return JSON.parse(txt);
-    }
-    /***********************
-     * Waveform visual (black/white)
-     * - Uses WebAudio AnalyserNode
-     * - Shows different intensity for idle/listening/speaking
-     ***********************/
-    let audioCtx = null;
-    let analyserMic = null;
-    let analyserRemote = null;
-    let dataArray = null;
-    function ensureAudioContext(){
-      if(audioCtx) return audioCtx;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      return audioCtx;
-    }
-    function connectAnalyserForStream(stream, which){
-      if(!stream) return null;
-      const ctx = ensureAudioContext();
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.85;
-      source.connect(analyser);
-      if(!dataArray) dataArray = new Uint8Array(analyser.frequencyBinCount);
-      if(which === "mic") analyserMic = analyser;
-      if(which === "remote") analyserRemote = analyser;
-      return analyser;
-    }
-    function resizeCanvas(){
-      const dpr = Math.max(1, window.devicePixelRatio || 1);
-      const rect = waveCanvas.getBoundingClientRect();
-      waveCanvas.width  = Math.floor(rect.width * dpr);
-      waveCanvas.height = Math.floor(rect.height * dpr);
-      const ctx = waveCanvas.getContext("2d");
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-    }
-    window.addEventListener("resize", resizeCanvas);
-    function drawWave(){
-      const ctx = waveCanvas.getContext("2d");
-      const w = waveCanvas.getBoundingClientRect().width;
-      const h = waveCanvas.getBoundingClientRect().height;
-      // background fade (very subtle)
-      ctx.clearRect(0,0,w,h);
-      // pick analyser by state
-      const a = (isSpeaking && analyserRemote) ? analyserRemote
-              : (micEnabled && analyserMic) ? analyserMic
-              : null;
-      // determine energy
-      let energy = 0.12; // idle baseline
-      let arr = null;
-      if(a){
-        arr = dataArray || new Uint8Array(a.frequencyBinCount);
-        a.getByteFrequencyData(arr);
-        let sum = 0;
-        for(let i=0;i<arr.length;i++) sum += arr[i];
-        const avg = sum / arr.length;          // 0..255
-        energy = Math.min(1, Math.max(0.10, avg / 180)); // normalize
-      } else {
-        // idle breathing
-        energy = 0.10 + 0.04 * (0.5 + 0.5 * Math.sin(Date.now()/900));
-      }
-      // style intensity per mode
-      let amp = 0.18;  // idle
-      if(micEnabled) amp = 0.32;
-      if(isSpeaking) amp = 0.46;
-      amp *= (0.55 + energy);
-      // draw multiple layered waves
-      const mid = h * 0.52;
-      const baseAlpha = 0.14 + amp * 0.25;
-      const glowAlpha = 0.05 + amp * 0.12;
-      // soft glow band
-      ctx.beginPath();
-      ctx.fillStyle = \`rgba(255,255,255,\${glowAlpha})\`;
-      ctx.ellipse(w*0.5, mid, w*0.42, h*0.18 + amp*45, 0, 0, Math.PI*2);
-      ctx.fill();
-      // waveform line(s)
-      const t = Date.now() / 1000;
-      const layers = 3;
-      for(let L=0; L<layers; L++){
-        const phase = t * (0.9 + L*0.18);
-        const lineAmp = (h * (0.06 + L*0.018)) * (0.65 + amp);
-        const freq = 2.2 + L*0.7;
-        ctx.beginPath();
-        for(let x=0; x<=w; x+=2){
-          const nx = x / w;
-          // taper edges
-          const taper = Math.sin(Math.PI * nx);
-          // add some movement + optional audio modulation
-          let mod = 1;
-          if(arr){
-            const idx = Math.min(arr.length-1, Math.floor(nx * arr.length));
-            mod = 0.55 + (arr[idx] / 255) * 0.9;
-          }
-          const y = mid
-            + Math.sin((nx * Math.PI * 2 * freq) + phase) * lineAmp * taper * mod * 0.55
-            + Math.sin((nx * Math.PI * 2 * (freq*0.55)) - phase*1.3) * lineAmp * taper * mod * 0.22;
-          if(x===0) ctx.moveTo(x,y);
-          else ctx.lineTo(x,y);
+
+    // Initialize microphone capture and websocket connection
+    async function startVoiceChat() {
+      if (socket && socket.readyState === WebSocket.OPEN) return;
+      // Request mic access
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Create a ScriptProcessor node to handle audio chunks (for simplicity)
+      sourceNode = audioContext.createMediaStreamSource(mediaStream);
+      mediaProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+      sourceNode.connect(mediaProcessor);
+      // On audio process, send audio data via WebSocket
+      mediaProcessor.onaudioprocess = (e) => {
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+        const audioData = e.inputBuffer.getChannelData(0);
+        // Copy the float data and send as ArrayBuffer
+        try {
+          socket.send(audioData.buffer.slice(0));  // send raw PCM float data
+        } catch (err) {
+          console.error("WebSocket send error:", err);
         }
-        const aLine = baseAlpha * (1 - L*0.22);
-        ctx.strokeStyle = \`rgba(255,255,255,\${aLine})\`;
-        ctx.lineWidth = 1.25 + L*0.5;
-        ctx.shadowColor = \`rgba(255,255,255,\${0.18 + amp*0.25})\`;
-        ctx.shadowBlur = 18 + amp*22;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-      requestAnimationFrame(drawWave);
-    }
-    /***********************
-     * Realtime init
-     ***********************/
-    async function initRealtime(){
-      resizeCanvas();
-      drawWave();
-      // Remote audio element (assistant voice)
-      const remoteAudio = document.createElement("audio");
-      remoteAudio.autoplay = true;
-      remoteAudio.muted = false;
-      remoteAudio.playsInline = true;
-      remoteAudio.style.display = "none";
-      document.body.appendChild(remoteAudio);
-      // speaking detection
-      const markSpeaking = (v)=>{
-        isSpeaking = v;
-        updateModeUI();
       };
-      remoteAudio.addEventListener("playing", ()=>markSpeaking(true));
-      remoteAudio.addEventListener("pause",   ()=>markSpeaking(false));
-      remoteAudio.addEventListener("ended",   ()=>markSpeaking(false));
-      // One-time unlock helper (autoplay policies)
-      async function unlockAudio(){
-        try{
-          const ctx = ensureAudioContext();
-          if(ctx.state === "suspended") await ctx.resume();
-        }catch(e){}
-        try{
-          await remoteAudio.play();
-        }catch(e){}
-      }
-      // unlock on first user gesture anywhere
-      const unlockOnce = ()=>{
-        unlockAudio();
-        window.removeEventListener("pointerdown", unlockOnce);
-        window.removeEventListener("keydown", unlockOnce);
+
+      // Connect to server via WebSocket (assume same host, e.g. ws://localhost:8000/ws)
+      const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+      socket = new WebSocket(wsUrl);
+      socket.binaryType = 'arraybuffer';
+      socket.onopen = () => {
+        console.log("WebSocket connected");
+        // Start processing audio once websocket is open
+        mediaProcessor.connect(audioContext.destination);  // we don't actually output mic to speakers, but connecting processor starts it
+        setState('listening');
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
       };
-      window.addEventListener("pointerdown", unlockOnce, { once:false });
-      window.addEventListener("keydown", unlockOnce, { once:false });
-      try{
-        const session = await getSession();
-        const token = session.client_secret.value;
-        const model = session.model;
-        const pc = new RTCPeerConnection();
-        pc.ontrack = (e) => {
-          remoteAudio.srcObject = e.streams[0];
-          // connect analyser to assistant audio stream for visuals
-          connectAnalyserForStream(e.streams[0], "remote");
-          remoteAudio.play().catch(err => appendLog("🔇 Audio play blocked: " + err.message));
-        };
-        // Reserve audio m-line in SDP (no mic permission prompt)
-        const audioTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
-        const audioSender = audioTransceiver.sender;
-        let micStream = null;
-        async function enableMic(){
-          if(micEnabled) return;
-          await unlockAudio();
-          try{
-            micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-            const track = micStream.getAudioTracks()[0];
-            await audioSender.replaceTrack(track);
-            micEnabled = true;
-            micBtnEl.classList.add("on");
-            micBtnEl.textContent = "Listening";
-            appendLog("🎙️ Mic enabled");
-            // connect analyser to mic stream for visuals
-            connectAnalyserForStream(micStream, "mic");
-            updateModeUI();
-          }catch(err){
-            appendLog("❌ Mic error: " + err.message);
-          }
-        }
-        async function disableMic(){
-          if(!micEnabled) return;
-          try{ await audioSender.replaceTrack(null); } catch(e){}
-          if(micStream){
-            micStream.getTracks().forEach(t => t.stop());
-          }
-          micStream = null;
-          micEnabled = false;
-          micBtnEl.classList.remove("on");
-          micBtnEl.textContent = "Talk";
-          appendLog("🎙️ Mic disabled");
-          updateModeUI();
-        }
-        const dc = pc.createDataChannel("oai-events");
-        function requestAssistantResponse(modalities){
-          if(!dc || dc.readyState !== "open"){
-            appendLog("⚠️ Data channel not open yet — can't request response.");
-            return;
-          }
-          dc.send(JSON.stringify({
-            type: "response.create",
-            response: { modalities } // ["text"] or ["audio"]
-          }));
-        }
-        // Mic toggle: unlock audio output on user gesture
-        micBtnEl.addEventListener("click", async ()=>{
-          await unlockAudio();
-          if(micEnabled) disableMic();
-          else enableMic();
-        });
-        dc.onopen = ()=>{
-          appendLog("📡 Data channel open");
-          sendBtnEl.disabled = false;
-          micBtnEl.disabled  = false;
-          isConnected = true;
-          updateModeUI();
-          setStatus("Connected • type anytime or press Talk");
-          hintEl.innerHTML = \`Click <span class="kbd">Talk</span> to speak, or type and hit <span class="kbd">Enter</span>.\`;
-        };
-        dc.onerror = (e)=>appendLog("⚠️ Data channel error " + (e?.message || ""));
-        function sendTypedText(){
-          const text = (textInputEl.value || "").trim();
-          if(!text) return;
-          unlockAudio();
-          if(!dc || dc.readyState !== "open"){
-            appendLog("⚠️ Not connected yet — can't send typed text.");
-            return;
-          }
-          dc.send(JSON.stringify({
-            type: "conversation.item.create",
-            item: {
-              type: "message",
-              role: "user",
-              content: [{ type: "input_text", text }]
-            }
-          }));
-          appendLog("🧑 User (typed): " + text);
-          sendToN8N("user", text);
-          // typed => text response
-          requestAssistantResponse(["text"]);
-          textInputEl.value = "";
-          textInputEl.focus();
-        }
-        sendBtnEl.addEventListener("click", sendTypedText);
-        textInputEl.addEventListener("keydown", (e)=>{
-          if(e.key === "Enter") sendTypedText();
-        });
-        let textBuffer = "";
-        dc.onmessage = async (event)=>{
+      socket.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          // Handle text message (transcript or system message)
           let msg;
-          try { msg = JSON.parse(event.data); }
-          catch { return; }
-          const type = msg.type || "";
-          // 1) User speech -> transcription
-          if(type === "conversation.item.input_audio_transcription.completed"){
-            const text = (msg.transcript || "").trim();
-            if(text){
-              appendLog("🧑 User: " + text);
-              await sendToN8N("user", text);
-              // Voice mode: only speak back if mic is enabled
-              if(micEnabled){
-                requestAssistantResponse(["audio"]);
-              }
-            }
+          try { msg = JSON.parse(event.data); } catch { msg = { text: event.data }; }
+          if (msg.text) {
+            // Update transcript display
+            transcriptEl.textContent = msg.text;
           }
-          // 2) Assistant text (typed responses)
-          if(type === "response.text.delta"){
-            const delta = msg.delta || "";
-            if(delta) textBuffer += delta;
+          if (msg.event === 'speech_start') {
+            // AI is starting to speak
+            setState('speaking');
           }
-          if(type === "response.text.done"){
-            const text = (msg.text || textBuffer || "").trim();
-            if(text){
-              appendLog("🤖 Assistant: " + text);
-              await sendToN8N("assistant", text);
-            }
-            textBuffer = "";
+          if (msg.event === 'speech_end') {
+            // AI finished speaking (if server indicates); we'll switch back to listening at audio end
+            // (The onended of bufferSource will handle state reset to listening)
           }
-          // 3) Assistant audio transcript (voice responses)
-          if(type === "response.output_item.done"){
-            if(!msg.item || !msg.item.content) return;
-            for(const c of msg.item.content){
-              if(c.type === "audio" && c.transcript){
-                const t = c.transcript.trim();
-                appendLog("🤖 Assistant (voice): " + t);
-                await sendToN8N("assistant", t);
-              }
-            }
-          }
-        };
-        // Offer/Answer with OpenAI Realtime
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        const res = await fetch(
-          \`https://api.openai.com/v1/realtime?model=\${model}\`,
-          {
-            method:"POST",
-            headers:{
-              "Content-Type":"application/sdp",
-              "Authorization": \`Bearer \${token}\`
-            },
-            body: offer.sdp
-          }
-        );
-        const ans = await res.text();
-        appendLog(\`🛰️ Realtime SDP response status: \${res.status}\`);
-        appendLog(\`🛰️ Realtime SDP response head: \${ans.slice(0,120).replace(/\\n/g," ")}\`);
-        if(!res.ok || !ans.trim().startsWith("v=")){
-          throw new Error("Realtime returned non-SDP: " + ans.slice(0,200));
+        } else {
+          // Binary data: treat as audio chunk from AI
+          const audioData = new Float32Array(event.data);
+          setState('speaking');
+          playAudioChunk(audioData);
         }
-        await pc.setRemoteDescription({ type:"answer", sdp: ans });
-        appendLog("✅ Connected to OpenAI realtime");
-      }catch(err){
-        setStatus("❌ " + err.message);
-        appendLog("❌ Init error: " + err.message);
+      };
+      socket.onclose = () => {
+        console.log("WebSocket closed");
+        stopVoiceChat();
+      };
+      socket.onerror = (err) => {
+        console.error("WebSocket error:", err);
+      };
+    }
+
+    function stopVoiceChat() {
+      // Stop capturing audio and close connection
+      if (mediaProcessor) {
+        mediaProcessor.disconnect();
+        mediaProcessor = null;
+      }
+      if (sourceNode) {
+        sourceNode.disconnect();
+        sourceNode = null;
+      }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      setState('idle');
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    function resetConversation() {
+      // Optionally, send a reset command to server or just clear UI
+      transcriptEl.textContent = "";
+      // If socket is open, maybe notify server to reset state (depends on server implementation)
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ command: "reset" }));
       }
     }
-    initRealtime();
+
+    // Hook up button events
+    startBtn.addEventListener('click', () => {
+      startVoiceChat().catch(err => {
+        console.error("Failed to start voice chat:", err);
+        alert("Microphone access is required to start voice chat.");
+      });
+    });
+    stopBtn.addEventListener('click', () => {
+      stopVoiceChat();
+    });
+    resetBtn.addEventListener('click', () => {
+      resetConversation();
+    });
   </script>
 </body>
 </html>
