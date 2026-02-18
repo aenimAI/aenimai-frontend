@@ -1,0 +1,565 @@
+{
+  "name": "AenimAI - Silver/Gold/Profile Builder (Daily Cron)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 0
+            }
+          ]
+        }
+      },
+      "id": "9013df16-1240-46fd-9e54-b99e7e1e9d54",
+      "name": "Cron Daily",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        6480,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "create extension if not exists pgcrypto;\n\ncreate table if not exists public.user_profile (\n  user_id text primary key,\n  profile_json jsonb not null default '{}'::jsonb,\n  updated_at timestamptz not null default now(),\n  created_at timestamptz not null default now()\n);",
+        "options": {}
+      },
+      "id": "a67879ba-5c6a-4371-a9ac-2ff2d872d511",
+      "name": "Ensure user_profile table",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6704,
+        1072
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT session_id\nFROM public.stm_messages\nWHERE ts >= now() - interval '24 hours'\nORDER BY session_id;\n",
+        "options": {}
+      },
+      "id": "26e76cd8-cec0-4050-8b8e-c380ed85f1e1",
+      "name": "Get yesterday's sessions",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6928,
+        1072
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, role, text, ts, session_id\nFROM public.stm_messages\nWHERE session_id = '{{$json.session_id}}'\nORDER BY ts ASC;\n",
+        "options": {
+          "delayClosingIdleConnection": 0
+        }
+      },
+      "id": "f41b023b-c6de-43e4-833d-8b62188a3e5e",
+      "name": "Fetch session messages",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        7264,
+        1216
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output: sessions_by_id keyed by session_id\n// Each session has: start_ts, end_ts, message_count, transcript (NO timestamps inside)\n\nconst rows = $input.all().map(i => i.json);\n\nconst toMs = (ts) => {\n  const d = new Date(ts);\n  const ms = d.getTime();\n  return Number.isFinite(ms) ? ms : 0;\n};\n\n// Group by session_id\nconst sessions = new Map();\nfor (const r of rows) {\n  const sid = String(r.session_id); // assumes session_id exists (you fixed the SQL)\n  if (!sessions.has(sid)) sessions.set(sid, []);\n  sessions.get(sid).push(r);\n}\n\n// Sort messages in each session by ts\nfor (const [sid, msgs] of sessions.entries()) {\n  msgs.sort((a, b) => toMs(a.ts) - toMs(b.ts));\n}\n\n// Build output\nconst sessionsById = {};\n\nconst fmtLine = (m) => {\n  const role = m.role || \"unknown\";\n  const text = String(m.text || \"\").replace(/\\s+/g, \" \").trim();\n  return `${role}: ${text}`;\n};\n\nfor (const [sid, msgs] of sessions.entries()) {\n  const startTs = msgs[0]?.ts ?? null;\n  const endTs = msgs[msgs.length - 1]?.ts ?? null;\n\n  sessionsById[sid] = {\n    session_id: sid,\n    message_count: msgs.length,\n    start_ts: startTs,\n    end_ts: endTs,\n    transcript: msgs.map(fmtLine).join(\" \"),\n  };\n}\n\nreturn [\n  {\n    json: {\n      sessions_by_id: JSON.stringify(sessionsById),\n    },\n  },\n];\n"
+      },
+      "id": "b8fc84d8-310e-4934-8993-8bef9680e50c",
+      "name": "Build session string",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7584,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"temperature\": 0,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You extract daily Silver notes for a personal AI coaching system. Input is a full session transcript with message IDs from one day. Return ONLY JSON with this schema: {\\\"notes\\\": [ {\\\"topic\\\": <one of: trading, health, relationships, personal_growth, admin, other>, \\\"summary\\\": string, \\\"importance\\\": 1-5, \\\"evidence_message_ids\\\": [\\\"uuid\\\", ...] } ] }.\\nMap synonyms to the allowed topics (e.g. trade, invest -> trading; exercise, workout -> health). Do not invent new topics; use 'other' if none apply. Only summarise durable information such as goals, plans, commitments, problems, learnings, preferences, decisions, mistakes, or actions. Ignore greetings, filler, or chit-chat. Make 0-5 notes. Evidence IDs must come from the transcript.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.sessions_by_id, null, 2) }}\n\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "f08617f6-e0a7-40ba-8cba-22f505bbd2f9",
+      "name": "LLM: Extract Silver notes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7808,
+        1280
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "XcN7ORpxFyVUwVKE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session_id = $item(0).$node[\"Build session string\"].json.session_id;\nconst raw = $json.choices?.[0]?.message?.content || '{\"notes\":[]}';\nlet data;\ntry { data = JSON.parse(raw); } catch (e) { data = { notes: [] }; }\nconst notes = Array.isArray(data.notes) ? data.notes : [];\nreturn notes.map(n => ({\n  json: {\n    session_id,\n    topic: n.topic || 'other',\n    summary: n.summary || '',\n    importance: Number(n.importance || 3),\n    evidence_message_ids: Array.isArray(n.evidence_message_ids) ? n.evidence_message_ids : []\n  }\n}));"
+      },
+      "id": "b77ec96c-f2b7-4655-8b18-4ed890a2d059",
+      "name": "Explode Silver notes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8048,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.silver_notes (topic, summary, importance)\nVALUES (\n  '{{ $json.topic }}',\n  '{{ ($json.summary || \"\").replace(/'/g, \"''\") }}',\n  {{ $json.importance }}\n)\nON CONFLICT (topic, summary) DO NOTHING;\n\n\n",
+        "options": {}
+      },
+      "id": "0aa95dec-2b54-4ed2-8564-5b4feb8f8904",
+      "name": "Insert Silver notes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        8272,
+        1264
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Aggregate silver notes for the last 7 days grouped by topic\nselect topic, json_agg(json_build_object(\n  'session_id', session_id,\n  'summary', summary,\n  'importance', importance,\n  'created_at', created_at\n) order by created_at desc) as notes\nfrom public.silver_notes\nwhere created_at >= (now() at time zone 'Europe/Amsterdam') - interval '7 days'\n  and created_at < (now() at time zone 'Europe/Amsterdam')\ngroup by topic;",
+        "options": {}
+      },
+      "id": "88823377-7f18-49ff-b75e-3cdece4a3e0f",
+      "name": "Gather Silver for Gold (7d)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        8464,
+        928
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert DB rows into the expected format for the Gold LLM call\nconst rows = $input.all().map(i => i.json);\nconst payload = rows.map(r => ({ topic: r.topic, notes: r.notes }));\nreturn [{ json: { silver_by_topic: JSON.stringify(payload) } }];"
+      },
+      "id": "274e8603-bb76-4d8a-b4a1-bcd8d293f434",
+      "name": "Prepare Gold input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8656,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"temperature\": 0,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an AI agent that identifies patterns in a user's behaviour and proposes coaching insights. Input is a list of silver notes grouped by topic for the last week. Return ONLY JSON with this schema: {\\\"insights\\\": [ {\\\"topic\\\": <allowed topic>, \\\"insight_key\\\": string, \\\"insight\\\": string, \\\"strength\\\": 0-1, \\\"priority\\\": 1-5 } ] }. For each topic, look for repeated patterns across days (frequent actions, repeated mistakes, consistent preferences). Describe the pattern and suggest how to reinforce beneficial patterns or mitigate detrimental ones. Use clear, coaching-oriented language. Generate up to 20 insights in total. Use stable, concise insight keys (lowercase, snake_case).\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.silver_by_topic) }}\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "id": "a271cb1e-bf97-40dc-a5be-3f36b12523ae",
+      "name": "LLM: Generate Gold insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        8864,
+        992
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "XcN7ORpxFyVUwVKE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.choices?.[0]?.message?.content || '{\"insights\":[]}';\nlet data;\ntry { data = JSON.parse(raw); } catch (e) { data = { insights: [] }; }\nconst insights = Array.isArray(data.insights) ? data.insights : [];\nreturn insights.map(x => ({\n  json: {\n    topic: x.topic || 'other',\n    insight_key: x.insight_key || ('insight_' + Math.random().toString(36).slice(2)),\n    insight: x.insight || '',\n    strength: Number(x.strength ?? 0.7),\n    priority: Number(x.priority ?? 3)\n  }\n}));"
+      },
+      "id": "b905c6d9-5737-4285-8fd6-0b8568c3366a",
+      "name": "Explode Gold insights",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9136,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.gold_insights (\n  topic,\n  insight_key,\n  insight,\n  strength,\n  priority\n)\nVALUES (\n  '{{ $json.topic }}',\n  '{{ $json.insight_key }}',\n  '{{ ($json.insight || \"\").replace(/'/g, \"''\") }}',\n  {{ $json.strength }},\n  {{ $json.priority }}\n)\nON CONFLICT (topic, insight_key)\nDO UPDATE SET\n  insight = EXCLUDED.insight,\n  strength = EXCLUDED.strength,\n  priority = EXCLUDED.priority,\n  updated_at = NOW();\n",
+        "options": {}
+      },
+      "id": "d74b12dc-4361-4819-a176-450f936b7b44",
+      "name": "Upsert Gold insight",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        9328,
+        1008
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select json_agg(json_build_object(\n  'topic', topic,\n  'insight_key', insight_key,\n  'insight', insight,\n  'strength', strength,\n  'priority', priority\n) order by priority desc, strength desc) as insights\nfrom public.gold_insights;",
+        "options": {}
+      },
+      "id": "5e1a6dc0-d71f-4ab7-b757-d5f3aeeed706",
+      "name": "Fetch Gold for Profile",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        9520,
+        1328
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"model\": \"gpt-4.1-mini\",\n  \"temperature\": 0,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You maintain a long‑term user profile for a personal AI coach. Input is the current list of gold insights (JSON array). Return ONLY JSON representing a conservative profile: {\\\"values\\\":[], \\\"preferences\\\":{}, \\\"coaching_style\\\":\\\"...\\\", \\\"motivation_levers\\\":[], \\\"common_risks\\\":[], \\\"strengths\\\":[]}. Base these fields only on recurring patterns indicated by strong insights. Do not invent traits.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"={{ $json.gold_by_topic }}\"\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "id": "4b0747de-e772-4f44-a852-224f16c5aca9",
+      "name": "LLM: Update Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        9920,
+        1376
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "XcN7ORpxFyVUwVKE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.choices?.[0]?.message?.content || '{}';\nlet profile;\ntry { profile = JSON.parse(raw); } catch (e) { profile = {}; }\nreturn [{ json: { user_id: 'default_user', profile_json: JSON.stringify(profile) } }];"
+      },
+      "id": "5818d45b-32c9-470e-9d2c-fa10b9923de4",
+      "name": "Prepare Profile row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10160,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.user_profile(user_id, profile_json, updated_at)\nvalues (\n  '{{$json.user_id}}',\n  '{{$json.profile_json}}'::jsonb,\n  now()\n)\non conflict (user_id)\ndo update set profile_json = excluded.profile_json, updated_at = now();\n",
+        "options": {}
+      },
+      "id": "35490b6d-7c13-46a1-9552-04904db88479",
+      "name": "Upsert user_profile",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        10416,
+        976
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build grouped payload for Profile LLM.\n// Supports BOTH input shapes:\n// A) one item: { insights: [ {topic, insight_key, insight, strength, priority}, ... ] }\n// B) many items: each item is an insight row {topic, insight_key, insight, strength, priority}\n\nconst items = $input.all().map(i => i.json);\n\n// 1) Normalize to a flat array of insight rows\nlet insightRows = [];\n\n// Case A: single object with an \"insights\" array\nif (items.length === 1 && Array.isArray(items[0].insights)) {\n  insightRows = items[0].insights;\n} else {\n  // Case B: items are already rows (or contain nested arrays)\n  insightRows = items.flatMap(x => Array.isArray(x.insights) ? x.insights : [x]);\n}\n\n// 2) Group by topic\nconst byTopic = {};\nfor (const r of insightRows) {\n  const topic = r.topic ?? \"other\";\n  if (!byTopic[topic]) byTopic[topic] = [];\n\n  byTopic[topic].push({\n    insight_key: r.insight_key,\n    insight: r.insight,\n    strength: r.strength,\n    priority: r.priority,\n  });\n}\n\n// 3) Convert to array format\nconst payload = Object.entries(byTopic).map(([topic, insights]) => ({\n  topic,\n  insights,\n}));\n\nreturn [\n  {\n    json: {\n      gold_by_topic: JSON.stringify(payload, null, 2).replace(/\\n/g, ' ')\n        .replace(/\\s+/g, ' ')\n        .trim(),\n    \n    },\n  },\n];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9712,
+        1088
+      ],
+      "id": "f52679a8-7d6d-42c4-91a3-f673eaefd5c2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "content": "Daily → Bronze → Silver (pure condensation, no intelligence debt)\n\nEvery 2–3 days → Gold (short-term behavioral feedback, non-overlapping windows)\n\nWeekly / bi-weekly / monthly → Platinum / Diamond (rare, high-signal, identity-level patterns)",
+        "width": 512
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        9040,
+        864
+      ],
+      "id": "d7488d12-c866-455e-ab76-0c27e2cfe681",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron Daily": {
+      "main": [
+        [
+          {
+            "node": "Ensure user_profile table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure user_profile table": {
+      "main": [
+        [
+          {
+            "node": "Get yesterday's sessions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get yesterday's sessions": {
+      "main": [
+        [
+          {
+            "node": "Fetch session messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch session messages": {
+      "main": [
+        [
+          {
+            "node": "Build session string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build session string": {
+      "main": [
+        [
+          {
+            "node": "LLM: Extract Silver notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Extract Silver notes": {
+      "main": [
+        [
+          {
+            "node": "Explode Silver notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Silver notes": {
+      "main": [
+        [
+          {
+            "node": "Insert Silver notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Silver notes": {
+      "main": [
+        [
+          {
+            "node": "Gather Silver for Gold (7d)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Silver for Gold (7d)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Gold input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Gold input": {
+      "main": [
+        [
+          {
+            "node": "LLM: Generate Gold insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Generate Gold insights": {
+      "main": [
+        [
+          {
+            "node": "Explode Gold insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Gold insights": {
+      "main": [
+        [
+          {
+            "node": "Upsert Gold insight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Gold insight": {
+      "main": [
+        [
+          {
+            "node": "Fetch Gold for Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Gold for Profile": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Update Profile": {
+      "main": [
+        [
+          {
+            "node": "Prepare Profile row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Profile row": {
+      "main": [
+        [
+          {
+            "node": "Upsert user_profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "LLM: Update Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1d3112be-0c16-47b5-a3f4-ff6a42a10c5d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5501ec8dfc8686dbb2c2784356f99d68fa44a9eb28a8ddffa63f0d9ce724e1a6"
+  },
+  "id": "zGiJJWPAaVcYILef",
+  "tags": []
+}

@@ -1,0 +1,717 @@
+{
+  "name": "RT-Audio",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/realtime/sessions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        816,
+        -320
+      ],
+      "id": "081b81f7-634a-49c2-b9cf-07961fe4239c",
+      "name": "HTTP Request",
+      "credentials": {
+        "openAiApi": {
+          "id": "XcN7ORpxFyVUwVKE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "realtime-ai",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        -288
+      ],
+      "id": "c592e242-19d4-47be-9992-153eb723f682",
+      "name": "Webhook",
+      "webhookId": "32b73c7b-424e-4ed7-aa29-25ffbb46f1ee"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1424,
+        -304
+      ],
+      "id": "d022f9c0-0dd4-4908-92a5-c27f510370d0",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-logs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -752,
+        96
+      ],
+      "id": "61da2ca0-f4ee-48af-a0ee-6882ec099ac9",
+      "name": "Get Logs",
+      "webhookId": "b597e8b9-01ae-4e95-ba66-3e251ce87133"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "stm_messages",
+          "mode": "list",
+          "cachedResultName": "stm_messages"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.body.session_id }}",
+            "role": "={{ $json.body.role }}",
+            "text": "={{ $json.body.text }}",
+            "ts": "={{ $json.body.timestamp }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "role",
+              "displayName": "role",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ts",
+              "displayName": "ts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -464,
+        -16
+      ],
+      "id": "93960da3-0ebb-4129-9143-98acb9688db0",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an intent classifier. Read the user message and respond ONLY with JSON of this form: {\\\"intent\\\": \\\"calendar\\\"} if the user clearly asks to add/schedule/put something into a calendar, otherwise {\\\"intent\\\": \\\"none\\\"}.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.text }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -96,
+        -16
+      ],
+      "id": "95ba6162-e3c7-44ab-8db5-d95d7e754f3d",
+      "name": "Intent",
+      "credentials": {
+        "openAiApi": {
+          "id": "XcN7ORpxFyVUwVKE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "436430f9-39e1-420d-b19a-fd8f22d6e508",
+              "leftValue": "={{ $json.role }}",
+              "rightValue": "user",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -448,
+        208
+      ],
+      "id": "eb786f35-e055-425a-b69b-fcaae6eb6124",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: JSON.parse($json.choices[0].message.content)\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        208
+      ],
+      "id": "28977d52-d816-4957-9888-bab14d577b94",
+      "name": "jsonfy"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1\",\n  \"temperature\": 0,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a calendar planning assistant, and today's date is {{ $now.setZone('Europe/Amsterdam').toISO() }}. Read the conversation and return only JSON with events. If nothing should be added, return '{\\\"events\\\": [no events]}'. For each event the fields MUST be title, description, start, end; no deviation can be made since it will result in ERROR for the next workflow steps.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.session_string }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1072,
+        -48
+      ],
+      "id": "e2a51a53-7cc4-4263-9de0-33c56f100488",
+      "name": "Calendar Design",
+      "credentials": {
+        "openAiApi": {
+          "id": "XcN7ORpxFyVUwVKE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, text, ts\nFROM stm_messages\nWHERE session_id = $1\nORDER BY ts ASC;\n",
+        "options": {
+          "queryReplacement": "={{ $node[\"Insert rows in a table\"].json.session_id }}\n"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        816,
+        -48
+      ],
+      "id": "652879e0-0557-4358-9090-37c84e766f1b",
+      "name": "Get Session",
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "iacono.giuseppe.25@gmail.com",
+          "mode": "list",
+          "cachedResultName": "iacono.giuseppe.25@gmail.com"
+        },
+        "start": "=\n{{ $json.start }}",
+        "end": "=\n{{ $json.end }}",
+        "additionalFields": {
+          "description": "={{ $json.description }}",
+          "summary": "={{ $json.title }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1376,
+        16
+      ],
+      "id": "a000a89f-3b05-4578-b883-79cb3d06910f",
+      "name": "Create an event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "3OYEjF2uA94FUKeS",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const history = $items(\"Get Session\").map(i => i.json);\n\nlet cleanString = history\n  .map(m => `${m.role}: ${m.text}`)\n  .join(\" \");\n\n// Remove ALL newline characters (hard line breaks)\ncleanString = cleanString.replace(/\\n/g, \" \");\n\nreturn [\n  {\n    json: {\n      session_string: cleanString\n    }\n  }\n];\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        192
+      ],
+      "id": "49153673-e3ce-4a4a-94b9-defac802a6cf",
+      "name": "Stringfy"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst events = items\n  .map((item) => {\n    const raw = item.json.choices[0].message.content;\n    const data = JSON.parse(raw);\n    return data.events;\n  })\n  .flat();\n\nreturn events.map((ev) => ({ json: ev }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        192
+      ],
+      "id": "9fe0157a-fce5-4aa1-9fcf-1c8cf734126e",
+      "name": "Events JSON"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "66627ab5-ecec-4e3e-9f1b-a10bac260c91",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "=calendar",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        368,
+        64
+      ],
+      "id": "3daeb29a-b2ec-4a4d-8099-1e26eed1df1e",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript)\n// Input: item.json.memory_payload OR item.json.profile + item.json.gold_insights\n// Output: item.json.memory_block\n\nfunction safeStringify(obj, maxChars = 2500) {\n  if (obj == null) return \"\";\n  let s;\n  try {\n    s = typeof obj === \"string\" ? obj : JSON.stringify(obj, null, 2);\n  } catch (e) {\n    s = String(obj);\n  }\n  if (s.length <= maxChars) return s;\n  return s.slice(0, maxChars) + \"…(truncated)\";\n}\n\nfunction cleanText(s, maxLen = 220) {\n  if (s == null) return \"\";\n  const t = String(s).replace(/\\s+/g, \" \").trim();\n  return t.length <= maxLen ? t : t.slice(0, maxLen) + \"…\";\n}\n\nconst item = $input.first();\nconst raw = item.json || {};\n\n// Support either shape\nconst payload = raw.memory_payload ?? raw;\nconst profile = payload.profile ?? payload.profile_json ?? null;\nconst insights = Array.isArray(payload.gold_insights) ? payload.gold_insights : [];\n\n// Build compact insights bullets\nconst insightLines = insights.slice(0, 30).map((x, i) => {\n  const topic = x.topic ?? \"general\";\n  const key = x.insight_key ?? `insight_${i + 1}`;\n  const pr = x.priority != null ? `p${x.priority}` : \"p?\";\n  const st = x.strength != null ? `s${Number(x.strength).toFixed(2)}` : \"s?\";\n  const txt = cleanText(x.insight, 240);\n  return `- [${topic}] (${key}, ${pr}, ${st}) ${txt}`;\n});\n\n// Assemble memory block (short + structured)\nconst profileBlock = profile\n  ? safeStringify(profile, 2500)\n  : \"(no profile found)\";\n\nconst memoryBlock =\n`### MEMORY (fresh from Neon; use as background facts, not as user messages)\nUser profile:\n${profileBlock}\n\nGold insights (top ${insightLines.length}):\n${insightLines.length ? insightLines.join(\" \") : \"- (none)\"}\n### END MEMORY`;\n\nconst cleanMemoryBlock = memoryBlock\n  .replace(/\\r?\\n+/g, \" \")   // replace all newlines with spaces\n  .replace(/\\s{2,}/g, \" \")   // collapse multiple spaces\n  .trim();\n\n// Return output fields\nreturn [\n  {\n    json: {\n      memory_block: cleanMemoryBlock      }\n    }\n  \n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -192
+      ],
+      "id": "666eed4b-81af-4709-b23e-b44c9dc7a2f6",
+      "name": "Memory"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (\n  SELECT profile_json\n  FROM public.user_profile\n  WHERE user_id = 'default_user'\n  LIMIT 1\n),\ng AS (\n  SELECT jsonb_agg(\n           jsonb_build_object(\n             'topic', topic,\n             'insight_key', insight_key,\n             'insight', insight,\n             'strength', strength,\n             'priority', priority\n           )\n           ORDER BY priority DESC, strength DESC\n         ) AS insights\n  FROM (\n    SELECT topic, insight_key, insight, strength, priority\n    FROM public.gold_insights\n    ORDER BY priority DESC, strength DESC\n    LIMIT 30\n  ) t\n)\nSELECT jsonb_build_object(\n  'profile', (SELECT profile_json FROM p),\n  'gold_insights', COALESCE((SELECT insights FROM g), '[]'::jsonb)\n) AS memory_payload;\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        160,
+        -256
+      ],
+      "id": "a1195d6c-2bb8-4ed4-a800-274f4c76a900",
+      "name": "Get Memory",
+      "credentials": {
+        "postgres": {
+          "id": "NwRdTJlSGPptkDb2",
+          "name": "neondb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const baseInstructions =\n`You are a friendly, conversational voice assistant called aenimAI. ALWAYS reply in clear, natural English, even if the user speaks another language. Do not switch languages unless the user explicitly asks you to reply in a different language. You can talk with me about anything: life, work, feelings, ideas, training, study, etc.\n\nYou are especially good at helping me design structured plans (workouts, study routines, habits, daily tasks) over days or weeks, ONLY when speficically asked, but you are NOT limited to that.\n\nIMPORTANT – CALENDAR EXPORT MODE:\nWhen I say something like:\n- \"OK, add this plan to my Google Calendar\"\n- \"Schedule this plan\"\n- \"Put this plan in my calendar\"\n\nyou MUST do TWO things in your next response:\n1) Keep talking to me like normal (a short confirmation like \"Got it, I’ll add it to your calendar\" is enough). Use my local timezone when choosing dates and times.`;\n\nconst memory = $node[\"Memory\"].json.memory_block || \"\";\n\nconst payload = {\n  model: \"gpt-4o-mini-realtime-preview\",\n  voice: \"alloy\",\n  modalities: [\"audio\", \"text\"],\n  instructions:\n    baseInstructions +\n    \"\\n\\n### MEMORY (do not repeat verbatim to the user; use as background facts)\\n\" +\n    memory +\n    \"\\n### END MEMORY\\n\",\n  input_audio_transcription: { model: \"gpt-4o-mini-transcribe\" },\n  turn_detection: {\n    type: \"server_vad\",\n    threshold: 0.65,\n    prefix_padding_ms: 500,\n    silence_duration_ms: 650\n  }\n};\n\nreturn [{ json: { payload } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -192
+      ],
+      "id": "22c7181a-a1ce-4f63-83dc-e9456f0ef33c",
+      "name": "Start"
+    }
+  ],
+  "pinData": {
+    "Get Logs": [
+      {
+        "json": {
+          "headers": {
+            "host": "aenimai.app.n8n.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "content-length": "160",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "2a02:a447:49c:0:702d:5c16:4707:a748",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "NL",
+            "cf-ray": "9aa46eadf6a24b78-AMS",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "origin": "https://082cd477.aenimai.pages.dev",
+            "priority": "u=1, i",
+            "referer": "https://082cd477.aenimai.pages.dev/",
+            "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "2a02:a447:49c:0:702d:5c16:4707:a748, 104.23.166.9",
+            "x-forwarded-host": "aenimai.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-82-6b58d578cf-lmz26",
+            "x-is-trusted": "yes",
+            "x-real-ip": "2a02:a447:49c:0:702d:5c16:4707:a748"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "source": "aenimAI-frontend",
+            "session_id": "sess_bhcpkop1gd6_1765114789550",
+            "timestamp": "2025-12-07T13:40:01.986Z",
+            "role": "user",
+            "text": "Add it to my calendar."
+          },
+          "webhookUrl": "https://aenimai.app.n8n.cloud/webhook/get-logs",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Calendar Design": [
+      {
+        "json": {
+          "id": "chatcmpl-CkAGuVtmC1Jbl0RnhTCZwmzdb7Ugp",
+          "object": "chat.completion",
+          "created": 1765118608,
+          "model": "gpt-4.1-2025-04-14",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\n  \"events\": [\n    {\n      \"title\": \"Learn Guitar: Day 1\",\n      \"description\": \"Basic guitar anatomy, tuning, open chords (Em, G, C, D), simple strumming, and chord switching practice.\",\n      \"start_time\": \"2024-06-13T09:00:00\",\n      \"end_time\": \"2024-06-13T10:00:00\"\n    },\n    {\n      \"title\": \"Learn Guitar: Day 2\",\n      \"description\": \"Review Day 1 chords, learn A major and E major chords, new strumming pattern (down-down-up-up-down), and practice.\",\n      \"start_time\": \"2024-06-14T09:00:00\",\n      \"end_time\": \"2024-06-14T10:00:00\"\n    },\n    {\n      \"title\": \"Learn Guitar: Day 3\",\n      \"description\": \"Review all chords, practice chord transitions, learn a simple song using learned chords, and review strumming patterns.\",\n      \"start_time\": \"2024-06-15T09:00:00\",\n      \"end_time\": \"2024-06-15T10:00:00\"\n    }\n  ]\n}",
+                "refusal": null,
+                "annotations": []
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 278,
+            "completion_tokens": 262,
+            "total_tokens": 540,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "system_fingerprint": "fp_09249d7c7b"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Logs": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent": {
+      "main": [
+        [
+          {
+            "node": "jsonfy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "jsonfy": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Session": {
+      "main": [
+        [
+          {
+            "node": "Stringfy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar Design": {
+      "main": [
+        [
+          {
+            "node": "Events JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stringfy": {
+      "main": [
+        [
+          {
+            "node": "Calendar Design",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Events JSON": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Get Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "main": [
+        [
+          {
+            "node": "Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Memory": {
+      "main": [
+        [
+          {
+            "node": "Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8fe3eed2-d21a-40ef-aaa7-996b33851779",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5501ec8dfc8686dbb2c2784356f99d68fa44a9eb28a8ddffa63f0d9ce724e1a6"
+  },
+  "id": "6KyS4yX4aEbE9VYu",
+  "tags": []
+}
