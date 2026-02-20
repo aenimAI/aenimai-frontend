@@ -254,6 +254,49 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2620dbfd-78bf-49d7-8a78-e2eec54f9678",
+              "leftValue": "={{ $now.setZone('Europe/Amsterdam').weekdayLong }}",
+              "rightValue": "Sunday",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "8e0ac59d-0562-4371-b1d1-814fa8edfb30",
+              "leftValue": "={{ $now.setZone('Europe/Amsterdam').hour }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6bcab35a-29cb-4ee2-91ad-46f360f092e0",
+      "name": "If Sunday Gold Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        9328,
+        1360
+      ]
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
         "query": "select json_agg(json_build_object(\n  'topic', topic,\n  'insight_key', insight_key,\n  'insight', insight,\n  'strength', strength,\n  'priority', priority\n) order by priority desc, strength desc) as insights\nfrom public.gold_insights;",
         "options": {}
@@ -488,7 +531,25 @@
       "main": [
         [
           {
+            "node": "If Sunday Gold Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Sunday Gold Update": {
+      "main": [
+        [
+          {
             "node": "Upsert Gold insight",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Gold for Profile",
             "type": "main",
             "index": 0
           }
