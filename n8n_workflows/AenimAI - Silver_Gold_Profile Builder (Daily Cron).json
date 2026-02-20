@@ -487,7 +487,7 @@
       "main": [
         [
           {
-            "node": "Gather Silver for Gold (7d)",
+            "node": "If Sunday Gold Update",
             "type": "main",
             "index": 0
           }
@@ -531,7 +531,7 @@
       "main": [
         [
           {
-            "node": "If Sunday Gold Update",
+            "node": "Upsert Gold insight",
             "type": "main",
             "index": 0
           }
@@ -542,7 +542,7 @@
       "main": [
         [
           {
-            "node": "Upsert Gold insight",
+            "node": "Gather Silver for Gold (7d)",
             "type": "main",
             "index": 0
           }
